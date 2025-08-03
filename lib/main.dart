@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
+import 'gender_selection_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +13,25 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Reduce Smoking App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        scaffoldBackgroundColor: const Color(0xFF001F54),
+        textTheme: ThemeData.light().textTheme.apply(
+              bodyColor: Colors.white,
+              displayColor: Colors.white,
+            ),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF001F54),
+          brightness: Brightness.dark,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF001F54),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ),
       home: const TermsPage(),
     );
@@ -30,9 +48,9 @@ class TermsPage extends StatefulWidget {
 class _TermsPageState extends State<TermsPage> {
   bool _agreed = false;
 
-  void _goToLogin() {
+  void _goToGenderSelection() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+      MaterialPageRoute(builder: (_) => const GenderSelectionPage()),
     );
   }
 
@@ -64,9 +82,12 @@ class _TermsPageState extends State<TermsPage> {
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _agreed ? _goToLogin : null,
-                  child: const Text('Continue'),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _agreed ? _goToGenderSelection : null,
+                    child: const Text('Continue'),
+                  ),
                 ),
               ],
             ),

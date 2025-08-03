@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'gender_selection_page.dart';
+import 'login_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -48,9 +48,9 @@ class TermsPage extends StatefulWidget {
 class _TermsPageState extends State<TermsPage> {
   bool _agreed = false;
 
-  void _goToGenderSelection() {
+  void _goToLogin() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const GenderSelectionPage()),
+      MaterialPageRoute(builder: (_) => const LoginPage()),
     );
   }
 
@@ -85,7 +85,7 @@ class _TermsPageState extends State<TermsPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _agreed ? _goToGenderSelection : null,
+                    onPressed: _agreed ? _goToLogin : null,
                     child: const Text('Continue'),
                   ),
                 ),

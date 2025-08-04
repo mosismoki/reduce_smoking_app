@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:firebase_auth/firebase_auth.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -93,6 +94,15 @@ class _HomeViewState extends State<HomeView> {
   int _interval = 60;
   DateTime _nextSmoke = DateTime.now().add(const Duration(minutes: 60));
 
+  Future<void> _testSignIn() async {
+    try {
+      final credential = await FirebaseAuth.instance.signInAnonymously();
+      debugPrint('Signed in: ${credential.user?.uid}');
+    } catch (e) {
+      debugPrint('Sign in failed: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -177,6 +187,11 @@ class _HomeViewState extends State<HomeView> {
                   _leaves,
                   (_) => const Icon(Icons.eco, color: Colors.green),
                 ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _testSignIn,
+                child: const Text('Test Firebase Auth'),
               ),
             ],
           ),

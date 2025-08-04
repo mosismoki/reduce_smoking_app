@@ -7,9 +7,11 @@ import 'home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('Initializing Firebase...');
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  debugPrint('Firebase initialized');
 
   try {
     final userCredential = await FirebaseAuth.instance.signInAnonymously();

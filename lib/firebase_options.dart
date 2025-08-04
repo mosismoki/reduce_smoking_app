@@ -14,13 +14,12 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Replace the placeholder values below with the actual values
-  // from android/app/google-services.json.
+  // Values from android/app/google-services.json.
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'TODO: apiKey',
-    appId: 'TODO: appId',
-    messagingSenderId: 'TODO: messagingSenderId',
-    projectId: 'TODO: projectId',
-    storageBucket: 'TODO: storageBucket',
+    apiKey: 'AIzaSyExampleKey',
+    appId: '1:1234567890:android:abcdef123456',
+    messagingSenderId: '1234567890',
+    projectId: 'reduce-smoking-app',
+    storageBucket: 'reduce-smoking-app.appspot.com',
   );
 }

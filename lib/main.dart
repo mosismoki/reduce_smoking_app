@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'auth_choice_page.dart';
+import 'home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,30 +17,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Reduce Smoking App',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF001F54),
-        textTheme: ThemeData.light().textTheme.apply(
-              bodyColor: Colors.white,
-              displayColor: Colors.white,
-            ),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF001F54),
-          brightness: Brightness.dark,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF001F54),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
-      home: const AuthChoicePage(),
+      title: 'Firebase Auth Test',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const HomePage(),
     );
   }
 }
-

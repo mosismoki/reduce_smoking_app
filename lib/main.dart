@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'firebase_options.dart';
 import 'home_page.dart';
 
@@ -8,6 +10,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  final userCredential = await FirebaseAuth.instance.signInAnonymously();
+  // Print the UID of the signed-in user to the console.
+  // ignore: avoid_print
+  print('Signed in anonymously as ${userCredential.user?.uid}');
   runApp(const MyApp());
 }
 

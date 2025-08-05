@@ -64,12 +64,17 @@ class SmokingScheduler {
 
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final darwin = DarwinInitializationSettings(notificationCategories: [
-      DarwinNotificationCategory('cigarette', actions: <DarwinNotificationAction>[
-        const DarwinNotificationAction.plain('smoke', 'Smoke now'),
-        const DarwinNotificationAction.plain('skip', 'Skip'),
-      ])
-    ]);
+    final darwin = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+        notificationCategories: [
+          DarwinNotificationCategory('cigarette',
+              actions: <DarwinNotificationAction>[
+            DarwinNotificationAction.plain('smoke', 'Smoke now'),
+            DarwinNotificationAction.plain('skip', 'Skip'),
+          ])
+        ]);
     final settings = InitializationSettings(android: android, iOS: darwin);
     await _notifications.initialize(settings,
         onDidReceiveNotificationResponse: (NotificationResponse resp) {
@@ -83,12 +88,6 @@ class SmokingScheduler {
     await _notifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
-    await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestPermission();
-    await _notifications
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   /// Set cigarettes per day and schedule the first cigarette.

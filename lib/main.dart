@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 import 'home_page.dart';
+import 'smoking_scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,9 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   debugPrint('Firebase initialized');
+
+  // Initialise smoking scheduler which sets up timers and notifications.
+  await SmokingScheduler.instance.init();
 
   try {
     final userCredential = await FirebaseAuth.instance.signInAnonymously();

@@ -1,19 +1,32 @@
 import 'package:flutter/material.dart';
-import 'auth_choice_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart';
 
-void main() async {
+import 'firebase_options.dart';
+import 'home_page.dart';
+import 'smoking_scheduler.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('Initializing Firebase...');
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await FirebaseAuth.instance.signInAnonymously();
+  debugPrint('Firebase initialized');
+
+  // Initialise smoking scheduler which sets up timers and notifications.
+  await SmokingScheduler.instance.init();
+
+  try {
+    final userCredential = await FirebaseAuth.instance.signInAnonymously();
+    debugPrint("Signed in anonymously: ${userCredential.user?.uid}");
+  } catch (e, st) {
+    debugPrint("Error signing in anonymously: $e");
+    debugPrintStack(stackTrace: st);
+  }
 
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -21,30 +34,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Reduce Smoking App',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF001F54),
-        textTheme: ThemeData.light().textTheme.apply(
-              bodyColor: Colors.white,
-              displayColor: Colors.white,
-            ),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF001F54),
-          brightness: Brightness.dark,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF001F54),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
-      home: const AuthChoicePage(),
+      title: 'Firebase Auth Test',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const HomePage(),
     );
   }
 }
-

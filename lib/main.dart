@@ -4,26 +4,33 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-
+import 'smoking_scheduler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1. Init Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // 2. Sign in anonymously
   await FirebaseAuth.instance.signInAnonymously();
   print("Signed in anonymously");
 
+  // 3. Save user to Firestore
   await FirebaseFirestore.instance.collection('users').add({
     'uid': FirebaseAuth.instance.currentUser?.uid,
     'timestamp': FieldValue.serverTimestamp(),
   });
   print("User saved to Firestore");
 
+  // 4. Initialize SmokingScheduler
+  await SmokingScheduler.instance.init();
 
+  // 5. Run the app
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -35,9 +42,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF001F54),
         textTheme: ThemeData.light().textTheme.apply(
-              bodyColor: Colors.white,
-              displayColor: Colors.white,
-            ),
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+        ),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF001F54),
           brightness: Brightness.dark,
@@ -57,4 +64,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

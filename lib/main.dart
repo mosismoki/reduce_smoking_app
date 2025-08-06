@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'auth_choice_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,6 +12,14 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAuth.instance.signInAnonymously();
+  print("Signed in anonymously");
+
+  await FirebaseFirestore.instance.collection('users').add({
+    'uid': FirebaseAuth.instance.currentUser?.uid,
+    'timestamp': FieldValue.serverTimestamp(),
+  });
+  print("User saved to Firestore");
+
 
   runApp(const MyApp());
 }

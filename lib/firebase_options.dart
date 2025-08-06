@@ -17,29 +17,17 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -59,4 +47,43 @@ class DefaultFirebaseOptions {
     projectId: 'smokingapp-623e2',
     storageBucket: 'smokingapp-623e2.firebasestorage.app',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBMsZjZD6MjiEbFakNyj6zq4ACn6Yti59k',
+    appId: '1:645697704156:web:489ae9d08cfdf2f6eba419',
+    messagingSenderId: '645697704156',
+    projectId: 'smokingapp-623e2',
+    authDomain: 'smokingapp-623e2.firebaseapp.com',
+    storageBucket: 'smokingapp-623e2.firebasestorage.app',
+    measurementId: 'G-ZJGLMBT04E',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDqbWURKT8WrPI1mx6FnVX-ch30FgEBZgs',
+    appId: '1:645697704156:ios:dfc4e8ae95db647eeba419',
+    messagingSenderId: '645697704156',
+    projectId: 'smokingapp-623e2',
+    storageBucket: 'smokingapp-623e2.firebasestorage.app',
+    iosBundleId: 'com.example.reduceSmokingApp',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDqbWURKT8WrPI1mx6FnVX-ch30FgEBZgs',
+    appId: '1:645697704156:ios:dfc4e8ae95db647eeba419',
+    messagingSenderId: '645697704156',
+    projectId: 'smokingapp-623e2',
+    storageBucket: 'smokingapp-623e2.firebasestorage.app',
+    iosBundleId: 'com.example.reduceSmokingApp',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyBMsZjZD6MjiEbFakNyj6zq4ACn6Yti59k',
+    appId: '1:645697704156:web:5ca5a852fe7537deeba419',
+    messagingSenderId: '645697704156',
+    projectId: 'smokingapp-623e2',
+    authDomain: 'smokingapp-623e2.firebaseapp.com',
+    storageBucket: 'smokingapp-623e2.firebasestorage.app',
+    measurementId: 'G-TZVN2N32SC',
+  );
+
 }

@@ -31,7 +31,8 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     if (_formKey.currentState!.validate()) {
       debugPrint('Gender: $_gender, Age: ${_ageController.text}, Country: ${_countryController.text}, Cigarettes: ${_cigarettesController.text}, Since: ${_sinceController.text}, Message: ${_messageController.text}');
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainPage()),
+        MaterialPageRoute(builder: (_) => HomePage()),
+
       );
     }
   }

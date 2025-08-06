@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart';
+import 'main_page.dart';
+import 'smoking_scheduler.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -29,7 +30,13 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      debugPrint('Gender: $_gender, Age: ${_ageController.text}, Country: ${_countryController.text}, Cigarettes: ${_cigarettesController.text}, Since: ${_sinceController.text}, Message: ${_messageController.text}');
+      final cigs = int.tryParse(_cigarettesController.text);
+      if (cigs != null && cigs > 0) {
+        SmokingScheduler.instance.setCigsPerDay(cigs);
+      }
+      debugPrint(
+        'Gender: $_gender, Age: ${_ageController.text}, Country: ${_countryController.text}, Cigarettes: ${_cigarettesController.text}, Since: ${_sinceController.text}, Message: ${_messageController.text}',
+      );
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainPage()),
       );

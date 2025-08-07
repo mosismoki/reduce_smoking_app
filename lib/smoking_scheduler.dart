@@ -142,28 +142,38 @@ class SmokingScheduler {
     );
   }
 
-  /// User decides to smoke now.
-  void onSmokeNow() {
+  /// Record a smoked cigarette.
+  void registerSmoked() {
     _resetIfNewDay();
     smokedToday.value += 1;
     _prefs.setInt(_smokedKey, smokedToday.value);
+  }
 
+  /// Record a skipped cigarette.
+  void registerSkipped() {
+    _resetIfNewDay();
+    skippedToday.value += 1;
+    _prefs.setInt(_skippedKey, skippedToday.value);
+  }
+
+  /// Schedule the next cigarette.
+  void scheduleNext() {
     final next = DateTime.now().add(interval);
     _prefs.setInt(_nextCigKey, next.millisecondsSinceEpoch);
     _startCountdown(next);
     scheduleNotification(next);
   }
 
+  /// User decides to smoke now.
+  void onSmokeNow() {
+    registerSmoked();
+    scheduleNext();
+  }
+
   /// User decides to skip this cigarette.
   void onSkip() {
-    _resetIfNewDay();
-    skippedToday.value += 1;
-    _prefs.setInt(_skippedKey, skippedToday.value);
-
-    final next = DateTime.now().add(interval);
-    _prefs.setInt(_nextCigKey, next.millisecondsSinceEpoch);
-    _startCountdown(next);
-    scheduleNotification(next);
+    registerSkipped();
+    scheduleNext();
   }
 
   void _resetIfNewDay() {

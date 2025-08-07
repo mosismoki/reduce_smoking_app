@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'auth_choice_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'firebase_options.dart';
 import 'smoking_scheduler.dart';
 
@@ -23,9 +25,6 @@ Future<void> _initNotifications() async {
 
 @pragma('vm:entry-point')
 Future<void> showSmokeNotification() async {
-  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const settings = InitializationSettings(android: android);
-  await flutterLocalNotificationsPlugin.initialize(settings);
   const androidDetails = AndroidNotificationDetails(
     'smoke_channel',
     'Smoke Reminders',
@@ -41,10 +40,36 @@ Future<void> showSmokeNotification() async {
   );
 }
 
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  DartPluginRegistrant.ensureInitialized();
+  await _initNotifications();
+
+  Timer.periodic(const Duration(minutes: 30), (timer) {
+    showSmokeNotification();
+  });
+}
+
+Future<void> initializeService() async {
+  final service = FlutterBackgroundService();
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: onStart,
+      autoStart: true,
+      isForegroundMode: true,
+      notificationChannelId: 'smoke_service',
+      initialNotificationTitle: 'Smoking Reminder Service',
+      initialNotificationContent: 'Running',
+    ),
+    iosConfiguration: const IosConfiguration(),
+  );
+  await service.startService();
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AndroidAlarmManager.initialize();
   await _initNotifications();
+  await initializeService();
 
   // 1. Init Firebase
   await Firebase.initializeApp(
@@ -63,16 +88,7 @@ Future<void> main() async {
   // 4. Initialize SmokingScheduler
   await SmokingScheduler.instance.init();
 
-  // 5. Schedule periodic notification every 30 minutes
-  await AndroidAlarmManager.periodic(
-    const Duration(minutes: 30),
-    0,
-    showSmokeNotification,
-    wakeup: true,
-    rescheduleOnReboot: true,
-  );
-
-  // 6. Run the app
+  // 5. Run the app
   runApp(const MyApp());
 }
 

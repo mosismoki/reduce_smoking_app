@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.example.reduce_smoking_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 33
     ndkVersion = "27.0.12077973"
 
     compileOptions {

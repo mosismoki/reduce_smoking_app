@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'smoking_scheduler.dart';
-import 'home_page.dart';
+import 'main_page.dart';
 
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({super.key});
@@ -38,7 +38,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
         'Gender: $_gender, Age: ${_ageController.text}, Country: ${_countryController.text}, Cigarettes: ${_cigarettesController.text}, Since: ${_sinceController.text}, Message: ${_messageController.text}',
       );
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomePage()),
+        MaterialPageRoute(builder: (_) => const MainPage()),
 
       );
     }

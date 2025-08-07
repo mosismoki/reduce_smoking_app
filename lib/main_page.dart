@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'smoking_scheduler.dart';
 
-/// Home page that either accepts the number of cigarettes per day or displays
+/// Main page that either accepts the number of cigarettes per day or displays
 /// the countdown timer with daily statistics.
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class MainPage extends StatefulWidget {
+  const MainPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<MainPage> createState() => _MainPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _MainPageState extends State<MainPage> {
   final _controller = TextEditingController();
   final _scheduler = SmokingScheduler.instance;
 

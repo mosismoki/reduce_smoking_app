@@ -52,7 +52,7 @@ class _MainPageState extends State<MainPage> {
             ],
           ),
         ),
-        bottomNavigationBar: const BottomNavigationBar(
+        bottomNavigationBar:BottomNavigationBar(
           currentIndex: 1,
           items: [
             BottomNavigationBarItem(
@@ -137,7 +137,7 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
       ),
-      bottomNavigationBar: const BottomNavigationBar(
+      bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,
         items: [
           BottomNavigationBarItem(

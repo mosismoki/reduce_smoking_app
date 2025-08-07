@@ -4,22 +4,47 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'firebase_options.dart';
 import 'smoking_scheduler.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
+Future<void> _initNotifications() async {
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const settings = InitializationSettings(android: android);
+  await flutterLocalNotificationsPlugin.initialize(settings);
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.requestNotificationsPermission();
+}
+
+@pragma('vm:entry-point')
+Future<void> showSmokeNotification() async {
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const settings = InitializationSettings(android: android);
+  await flutterLocalNotificationsPlugin.initialize(settings);
+  const androidDetails = AndroidNotificationDetails(
+    'smoke_channel',
+    'Smoke Reminders',
+    importance: Importance.high,
+    priority: Priority.high,
+  );
+  const details = NotificationDetails(android: androidDetails);
+  await flutterLocalNotificationsPlugin.show(
+    0,
+    'Time to smoke',
+    'Do you want to smoke this cigarette?',
+    details,
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  await AndroidAlarmManager.initialize();
+  await _initNotifications();
 
   // 1. Init Firebase
   await Firebase.initializeApp(
@@ -28,19 +53,26 @@ Future<void> main() async {
 
   // 2. Sign in anonymously
   await FirebaseAuth.instance.signInAnonymously();
-  print("Signed in anonymously");
 
   // 3. Save user to Firestore
   await FirebaseFirestore.instance.collection('users').add({
     'uid': FirebaseAuth.instance.currentUser?.uid,
     'timestamp': FieldValue.serverTimestamp(),
   });
-  print("User saved to Firestore");
 
   // 4. Initialize SmokingScheduler
   await SmokingScheduler.instance.init();
 
-  // 5. Run the app
+  // 5. Schedule periodic notification every 30 minutes
+  await AndroidAlarmManager.periodic(
+    const Duration(minutes: 30),
+    0,
+    showSmokeNotification,
+    wakeup: true,
+    rescheduleOnReboot: true,
+  );
+
+  // 6. Run the app
   runApp(const MyApp());
 }
 

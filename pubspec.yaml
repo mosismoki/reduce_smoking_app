@@ -66,6 +66,7 @@ flutter:
   # Register image assets used by the application.
   assets:
     - assets/tree.png
+    - assets/cypress.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

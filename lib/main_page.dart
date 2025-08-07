@@ -69,51 +69,68 @@ class _MainPageState extends State<MainPage> {
     // Timer display.
     return Scaffold(
       appBar: AppBar(title: const Text('Cigarette Timer')),
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ValueListenableBuilder<Duration>(
-                valueListenable: _scheduler.remaining,
-                builder: (context, duration, _) {
-                  final hours = duration.inHours.toString().padLeft(2, '0');
-                  final minutes = duration.inMinutes
-                      .remainder(60)
-                      .toString()
-                      .padLeft(2, '0');
-                  final seconds = duration.inSeconds
-                      .remainder(60)
-                      .toString()
-                      .padLeft(2, '0');
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Next cigarette in: $hours:$minutes:$seconds',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  );
-                },
+      body: Stack(
+        children: [
+          Center(
+            child: Opacity(
+              opacity: 0.2,
+              child: Image.asset(
+                'assets/tree.png',
+                fit: BoxFit.contain,
+                height: 350,
               ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder<int>(
-                valueListenable: _scheduler.smokedToday,
-                builder: (context, count, _) => Text('Smoked today: $count'),
-              ),
-              const SizedBox(height: 8),
-              ValueListenableBuilder<int>(
-                valueListenable: _scheduler.skippedToday,
-                builder: (context, count, _) => Text('Skipped today: $count'),
-              ),
-            ],
+            ),
           ),
-        ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ValueListenableBuilder<Duration>(
+                    valueListenable: _scheduler.remaining,
+                    builder: (context, duration, _) {
+                      final hours =
+                          duration.inHours.toString().padLeft(2, '0');
+                      final minutes = duration.inMinutes
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
+                      final seconds = duration.inSeconds
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Next cigarette in: $hours:$minutes:$seconds',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _scheduler.smokedToday,
+                    builder: (context, count, _) =>
+                        Text('Smoked today: $count'),
+                  ),
+                  const SizedBox(height: 8),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _scheduler.skippedToday,
+                    builder: (context, count, _) =>
+                        Text('Skipped today: $count'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,

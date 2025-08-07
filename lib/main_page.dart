@@ -52,17 +52,11 @@ class _MainPageState extends State<MainPage> {
             ],
           ),
         ),
-        bottomNavigationBar:BottomNavigationBar(
+        bottomNavigationBar: BottomNavigationBar(
           currentIndex: 1,
           items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Home',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings),
               label: 'Settings',
@@ -75,79 +69,57 @@ class _MainPageState extends State<MainPage> {
     // Timer display.
     return Scaffold(
       appBar: AppBar(title: const Text('Cigarette Timer')),
-      body: Stack(
-        children: [
-          // Background tree image.
-          Center(
-            child: Image.asset(
-              'assets/cypress.png',
-              width: 200,
-              height: 200,
-              fit: BoxFit.contain,
-            ),
-          ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ValueListenableBuilder<Duration>(
-                    valueListenable: _scheduler.remaining,
-                    builder: (context, duration, _) {
-                      final hours =
-                          duration.inHours.toString().padLeft(2, '0');
-                      final minutes = duration.inMinutes
-                          .remainder(60)
-                          .toString()
-                          .padLeft(2, '0');
-                      final seconds = duration.inSeconds
-                          .remainder(60)
-                          .toString()
-                          .padLeft(2, '0');
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey),
-                        ),
-                        child: Text(
-                          'Next cigarette in: $hours:$minutes:$seconds',
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  ValueListenableBuilder<int>(
-                    valueListenable: _scheduler.smokedToday,
-                    builder: (context, count, _) =>
-                        Text('Smoked today: $count'),
-                  ),
-                  const SizedBox(height: 8),
-                  ValueListenableBuilder<int>(
-                    valueListenable: _scheduler.skippedToday,
-                    builder: (context, count, _) =>
-                        Text('Skipped today: $count'),
-                  ),
-                ],
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<Duration>(
+                valueListenable: _scheduler.remaining,
+                builder: (context, duration, _) {
+                  final hours = duration.inHours.toString().padLeft(2, '0');
+                  final minutes = duration.inMinutes
+                      .remainder(60)
+                      .toString()
+                      .padLeft(2, '0');
+                  final seconds = duration.inSeconds
+                      .remainder(60)
+                      .toString()
+                      .padLeft(2, '0');
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Next cigarette in: $hours:$minutes:$seconds',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                },
               ),
-            ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<int>(
+                valueListenable: _scheduler.smokedToday,
+                builder: (context, count, _) => Text('Smoked today: $count'),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<int>(
+                valueListenable: _scheduler.skippedToday,
+                builder: (context, count, _) => Text('Skipped today: $count'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 1,
         items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',
@@ -157,4 +129,3 @@ class _MainPageState extends State<MainPage> {
     );
   }
 }
-

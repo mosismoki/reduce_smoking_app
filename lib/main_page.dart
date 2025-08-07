@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'smoking_scheduler.dart';
 import 'main.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Main page that either accepts the number of cigarettes per day or displays
 /// the countdown timer with daily statistics.

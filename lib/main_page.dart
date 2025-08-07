@@ -13,6 +13,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final _controller = TextEditingController();
   final _scheduler = SmokingScheduler.instance;
+  bool _dialogShown = false;
 
   @override
   void dispose() {
@@ -91,6 +92,44 @@ class _MainPageState extends State<MainPage> {
                   ValueListenableBuilder<Duration>(
                     valueListenable: _scheduler.remaining,
                     builder: (context, duration, _) {
+                      if (duration == Duration.zero && !_dialogShown) {
+                        _dialogShown = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: const Text('Log cigarette'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      _scheduler.registerSmoked();
+                                      _scheduler.scheduleNext();
+                                      setState(() {
+                                        _dialogShown = false;
+                                      });
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text('✅ Accept'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      _scheduler.registerSkipped();
+                                      _scheduler.scheduleNext();
+                                      setState(() {
+                                        _dialogShown = false;
+                                      });
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text('❌ Skip'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        });
+                      }
                       final hours =
                           duration.inHours.toString().padLeft(2, '0');
                       final minutes = duration.inMinutes

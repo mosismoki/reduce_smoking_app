@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'smoking_scheduler.dart';
+import 'main.dart';
 
 /// Main page that either accepts the number of cigarettes per day or displays
 /// the countdown timer with daily statistics.
@@ -74,7 +75,7 @@ class _MainPageState extends State<MainPage> {
         children: [
           Center(
             child: Opacity(
-              opacity: 0.2,
+              opacity: 1.0,
               child: Image.asset(
                 'assets/tree.png',
                 fit: BoxFit.contain,
@@ -94,13 +95,28 @@ class _MainPageState extends State<MainPage> {
                     builder: (context, duration, _) {
                       if (duration == Duration.zero && !_dialogShown) {
                         _dialogShown = true;
+                        flutterLocalNotificationsPlugin.show(
+                          0,
+                          'Time to smoke',
+                          'Do you want to smoke this cigarette?',
+                          const NotificationDetails(
+                            android: AndroidNotificationDetails(
+                              'smoke_channel',
+                              'Smoke Reminder',
+                              importance: Importance.max,
+                              priority: Priority.high,
+                            ),
+                          ),
+                        );
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           showDialog(
                             context: context,
                             barrierDismissible: false,
                             builder: (context) {
                               return AlertDialog(
-                                title: const Text('Log cigarette'),
+                                title: const Text('Time to smoke'),
+                                content: const Text(
+                                    'Do you want to smoke this cigarette?'),
                                 actions: [
                                   TextButton(
                                     onPressed: () {

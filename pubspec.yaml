@@ -41,6 +41,7 @@ dependencies:
   cloud_firestore: ^6.0.0
   flutter_local_notifications: 13.0.0
   flutter_background_service: ^5.0.1
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

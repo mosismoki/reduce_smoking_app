@@ -1,26 +1,33 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'auth_choice_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'firebase_options.dart';
 import 'smoking_scheduler.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
+Future<void> _requestNotificationPermission() async {
+  if (Platform.isAndroid) {
+    final status = await Permission.notification.status;
+    if (!status.isGranted) {
+      await Permission.notification.request();
+    }
+  }
+}
+
 Future<void> _initNotifications() async {
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
   const settings = InitializationSettings(android: android);
   await flutterLocalNotificationsPlugin.initialize(settings);
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
 }
 
 @pragma('vm:entry-point')
@@ -67,13 +74,12 @@ Future<void> initializeService() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _requestNotificationPermission();
   await _initNotifications();
   await initializeService();
 
   // 1. Init Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // 2. Sign in anonymously
   await FirebaseAuth.instance.signInAnonymously();

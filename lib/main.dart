@@ -42,7 +42,6 @@ Future<void> showSmokeNotification() async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
   await _initNotifications();
 
   Timer.periodic(const Duration(minutes: 30), (timer) {
@@ -61,7 +60,7 @@ Future<void> initializeService() async {
       initialNotificationTitle: 'Smoking Reminder Service',
       initialNotificationContent: 'Running',
     ),
-    iosConfiguration: const IosConfiguration(),
+    iosConfiguration: IosConfiguration(),
   );
   await service.startService();
 }

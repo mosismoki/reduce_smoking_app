@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.example.reduce_smoking_app"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -47,7 +47,7 @@ flutter {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))

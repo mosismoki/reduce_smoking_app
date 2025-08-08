@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'auth_choice_page.dart';
@@ -49,6 +50,9 @@ Future<void> showSmokeNotification() async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+
   await _initNotifications();
 
   Timer.periodic(const Duration(minutes: 30), (timer) {

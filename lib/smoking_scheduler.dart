@@ -16,6 +16,7 @@ class SmokingScheduler {
   static const _smokedKey = 'smokedToday';
   static const _skippedKey = 'skippedToday';
   static const _dateKey = 'statsDate';
+  static const _scheduledTimesKey = 'scheduledTimes';
 
   late SharedPreferences _prefs;
   final FlutterLocalNotificationsPlugin _notifications =
@@ -143,6 +144,10 @@ class SmokingScheduler {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: 'cigarette',
     );
+
+    final times = _prefs.getStringList(_scheduledTimesKey) ?? [];
+    times.add(time.millisecondsSinceEpoch.toString());
+    await _prefs.setStringList(_scheduledTimesKey, times);
   }
 
   /// Record a smoked cigarette.

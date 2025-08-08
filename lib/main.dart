@@ -1,20 +1,13 @@
-import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'auth_choice_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'firebase_options.dart';
 import 'smoking_scheduler.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
 
 Future<void> _requestNotificationPermission() async {
   if (Platform.isAndroid) {
@@ -25,63 +18,9 @@ Future<void> _requestNotificationPermission() async {
   }
 }
 
-Future<void> _initNotifications() async {
-  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const settings = InitializationSettings(android: android);
-  await flutterLocalNotificationsPlugin.initialize(settings);
-}
-
-@pragma('vm:entry-point')
-Future<void> showSmokeNotification() async {
-  const androidDetails = AndroidNotificationDetails(
-    'smoke_channel',
-    'Smoke Reminders',
-    importance: Importance.high,
-    priority: Priority.high,
-  );
-  const details = NotificationDetails(android: androidDetails);
-  await flutterLocalNotificationsPlugin.show(
-    0,
-    'Time to smoke',
-    'Do you want to smoke this cigarette?',
-    details,
-  );
-}
-
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
-
-  await _initNotifications();
-
-  Timer.periodic(const Duration(minutes: 30), (timer) {
-    showSmokeNotification();
-  });
-}
-
-Future<void> initializeService() async {
-  final service = FlutterBackgroundService();
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: true,
-      isForegroundMode: true,
-      notificationChannelId: 'smoke_service',
-      initialNotificationTitle: 'Smoking Reminder Service',
-      initialNotificationContent: 'Running',
-    ),
-    iosConfiguration: IosConfiguration(),
-  );
-  await service.startService();
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _requestNotificationPermission();
-  await _initNotifications();
-  await initializeService();
-
   // 1. Init Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 

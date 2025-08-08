@@ -13,15 +13,15 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") }  // ← همین خط رو اضافه کن
     }
 }
 
+
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.7.3" apply false
-    // START: FlutterFire Configuration
+    id("com.android.application") version "8.1.0" apply false
     id("com.google.gms.google-services") version("4.4.2") apply false
-    // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 }
 

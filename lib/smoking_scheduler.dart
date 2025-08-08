@@ -141,8 +141,6 @@ class SmokingScheduler {
         iOS: DarwinNotificationDetails(categoryIdentifier: 'cigarette'),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       payload: 'cigarette',
     );
   }

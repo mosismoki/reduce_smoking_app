@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart' as fln;
-
+import 'notification_service.dart';
 import 'smoking_scheduler.dart';
-import 'main.dart'; // assumes you expose: flutterLocalNotificationsPlugin
 
 /// Main page that either accepts the number of cigarettes per day
 /// or displays the countdown timer with daily stats.
@@ -25,22 +23,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _showReminderNotification() async {
-    final android = fln.AndroidNotificationDetails(
-      'smoke_channel',
-      'Smoke Reminder',
-      channelDescription: 'Reminders for the smoking schedule',
-      importance: fln.Importance.max,
-      priority: fln.Priority.high,
-    );
-
-    final details = fln.NotificationDetails(android: android);
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Time to smoke',
-      'Do you want to smoke this cigarette?',
-      details,
-    );
+    await NotificationService.instance.scheduleCigarette(DateTime.now(), id: 999);
   }
 
   Widget _buildBottomNav() {

@@ -1,6 +1,7 @@
 package com.example.reduce_smoking_app
 
 import android.content.Context
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -50,5 +51,19 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Debug: schedule a notification 15 seconds from now
+        val t = System.currentTimeMillis() + 15_000L
+        NotificationScheduler.scheduleSingle(
+            /* context = */ this,
+            /* requestCode = */ 1100,
+            /* triggerAtMillis = */ t,
+            /* title = */ "Cigarette time",
+            /* body  = */ "Do you want to smoke this cigarette?"
+        )
     }
 }

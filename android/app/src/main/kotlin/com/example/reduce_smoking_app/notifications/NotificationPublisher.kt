@@ -41,12 +41,13 @@ class NotificationPublisher : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, NotificationScheduler.CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.mipmap.ic_launcher) // or a monochrome status icon
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
-            .addAction(0, "Smoke now", acceptPI)
-            .addAction(0, "Skip", skipPI)
+            .addAction(R.drawable.ic_smoke, "Smoke now", acceptPI)
+            .addAction(R.drawable.ic_skip,  "Skip",      skipPI)
             .build()
 
         nm.notify(reqCode, notification)

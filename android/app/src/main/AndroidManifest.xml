@@ -40,16 +40,25 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-                  android:exported="false">
-          <intent-filter>
-            <action android:name="android.intent.action.BOOT_COMPLETED"/>
-            <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-          </intent-filter>
-        </receiver>
+        <!-- Fired at exact time to show the notification -->
+        <receiver
+            android:name=".notifications.NotificationPublisher"
+            android:exported="false" />
 
-        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
-                  android:exported="false"/>
+        <!-- Handles action buttons Accept/Skip -->
+        <receiver
+            android:name=".notifications.ActionReceiver"
+            android:exported="false" />
+
+        <!-- Re-schedules alarms after reboot (optional but recommended) -->
+        <receiver
+            android:name=".notifications.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Package visibility for Process Text plugin -->

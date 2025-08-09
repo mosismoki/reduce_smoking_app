@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'notification_service.dart';
+import 'native_bridge.dart';
 
 /// Manages cigarette scheduling, timers, notifications, and analytics.
 class SmokingScheduler {
@@ -25,8 +27,9 @@ class SmokingScheduler {
   Timer? _timer;
 
   /// Remaining time until next cigarette.
-  final ValueNotifier<Duration> remaining =
-      ValueNotifier<Duration>(Duration.zero);
+  final ValueNotifier<Duration> remaining = ValueNotifier<Duration>(
+    Duration.zero,
+  );
 
   /// Total cigarettes smoked today.
   final ValueNotifier<int> smokedToday = ValueNotifier<int>(0);
@@ -48,8 +51,10 @@ class SmokingScheduler {
     if (cigsPerDay != null) {
       final next = _prefs.getInt(_nextCigKey);
       if (next != null) {
-        final nextTime =
-            DateTime.fromMillisecondsSinceEpoch(next, isUtc: false);
+        final nextTime = DateTime.fromMillisecondsSinceEpoch(
+          next,
+          isUtc: false,
+        );
         _startCountdown(nextTime);
       }
     }
@@ -66,28 +71,35 @@ class SmokingScheduler {
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     final darwin = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-        notificationCategories: [
-          DarwinNotificationCategory('cigarette',
-              actions: <DarwinNotificationAction>[
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+      notificationCategories: [
+        DarwinNotificationCategory(
+          'cigarette',
+          actions: <DarwinNotificationAction>[
             DarwinNotificationAction.plain('smoke', 'Smoke now'),
             DarwinNotificationAction.plain('skip', 'Skip'),
-          ])
-        ]);
+          ],
+        ),
+      ],
+    );
     final settings = InitializationSettings(android: android, iOS: darwin);
-    await _notifications.initialize(settings,
-        onDidReceiveNotificationResponse: (NotificationResponse resp) {
-      if (resp.actionId == 'smoke') {
-        onSmokeNow();
-      } else if (resp.actionId == 'skip') {
-        onSkip();
-      }
-    });
+    await _notifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse resp) {
+        if (resp.actionId == 'smoke') {
+          onSmokeNow();
+        } else if (resp.actionId == 'skip') {
+          onSkip();
+        }
+      },
+    );
 
     await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
   }
 
@@ -118,29 +130,34 @@ class SmokingScheduler {
 
   /// Schedule a local notification at [time].
   Future<void> scheduleNotification(DateTime time) async {
-    await _notifications.zonedSchedule(
-      0,
-      'Cigarette time',
-      'Time to smoke',
-      tz.TZDateTime.from(time, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'cigarette_channel',
-          'Cigarette schedule',
-          importance: Importance.max,
-          priority: Priority.high,
-          actions: <AndroidNotificationAction>[
-            AndroidNotificationAction('smoke', 'Smoke now'),
-            AndroidNotificationAction('skip', 'Skip'),
-          ],
+    if (Platform.isAndroid) {
+      await NativeBridge.cancelAll();
+      await NativeBridge.scheduleEpochList([time.millisecondsSinceEpoch]);
+    } else {
+      await _notifications.zonedSchedule(
+        0,
+        'Cigarette time',
+        'Time to smoke',
+        tz.TZDateTime.from(time, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'cigarette_channel',
+            'Cigarette schedule',
+            importance: Importance.max,
+            priority: Priority.high,
+            actions: <AndroidNotificationAction>[
+              AndroidNotificationAction('smoke', 'Smoke now'),
+              AndroidNotificationAction('skip', 'Skip'),
+            ],
+          ),
+          iOS: DarwinNotificationDetails(categoryIdentifier: 'cigarette'),
         ),
-        iOS: DarwinNotificationDetails(categoryIdentifier: 'cigarette'),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: 'cigarette',
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: 'cigarette',
+      );
+    }
   }
 
   /// Record a smoked cigarette.
@@ -198,11 +215,20 @@ class SmokingScheduler {
     required int cigsPerDay,
     required int gapMinutes,
   }) async {
-    await NotificationService.instance.cancelAll();
-
-    for (int i = 0; i < cigsPerDay; i++) {
-      final t = startLocal.add(Duration(minutes: gapMinutes * i));
-      await NotificationService.instance.scheduleCigarette(t, id: 1000 + i);
+    if (Platform.isAndroid) {
+      await NativeBridge.cancelAll();
+      final times = <int>[];
+      for (int i = 0; i < cigsPerDay; i++) {
+        final t = startLocal.add(Duration(minutes: gapMinutes * i));
+        times.add(t.millisecondsSinceEpoch);
+      }
+      await NativeBridge.scheduleEpochList(times);
+    } else {
+      await NotificationService.instance.cancelAll();
+      for (int i = 0; i < cigsPerDay; i++) {
+        final t = startLocal.add(Duration(minutes: gapMinutes * i));
+        await NotificationService.instance.scheduleCigarette(t, id: 1000 + i);
+      }
     }
 
     // reset today counters
@@ -211,4 +237,3 @@ class SmokingScheduler {
     await prefs.setInt('skipped_today', 0);
   }
 }
-

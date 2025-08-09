@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'notification_service.dart';
 import 'smoking_scheduler.dart';
@@ -23,7 +24,11 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _showReminderNotification() async {
-    await NotificationService.instance.scheduleCigarette(DateTime.now(), id: 999);
+    if (Platform.isAndroid) return;
+    await NotificationService.instance.scheduleCigarette(
+      DateTime.now(),
+      id: 999,
+    );
   }
 
   Widget _buildBottomNav() {
@@ -36,7 +41,6 @@ class _MainPageState extends State<MainPage> {
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -145,10 +149,14 @@ class _MainPageState extends State<MainPage> {
                       }
 
                       final hh = duration.inHours.toString().padLeft(2, '0');
-                      final mm =
-                      duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-                      final ss =
-                      duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+                      final mm = duration.inMinutes
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
+                      final ss = duration.inSeconds
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
 
                       return Container(
                         padding: const EdgeInsets.all(12),
@@ -167,13 +175,15 @@ class _MainPageState extends State<MainPage> {
 
                   ValueListenableBuilder<int>(
                     valueListenable: _scheduler.smokedToday,
-                    builder: (context, count, _) => Text('Smoked today: $count'),
+                    builder: (context, count, _) =>
+                        Text('Smoked today: $count'),
                   ),
                   const SizedBox(height: 8),
 
                   ValueListenableBuilder<int>(
                     valueListenable: _scheduler.skippedToday,
-                    builder: (context, count, _) => Text('Skipped today: $count'),
+                    builder: (context, count, _) =>
+                        Text('Skipped today: $count'),
                   ),
                 ],
               ),

@@ -6,8 +6,8 @@
     <!-- Android 13+ notifications (you already added it — keep it) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Optional: reschedule alarms after device reboot -->
-    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- Optional: if you ever use a Foreground service for long tasks -->
     <!-- <uses-permission android:name="android.permission.WAKE_LOCK" /> -->
@@ -40,6 +40,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+                  android:exported="false">
+          <intent-filter>
+            <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+          </intent-filter>
+        </receiver>
+
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+                  android:exported="false"/>
     </application>
 
     <!-- Package visibility for Process Text plugin -->

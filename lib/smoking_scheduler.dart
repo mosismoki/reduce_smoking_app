@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'notification_service.dart';
 
 /// Manages cigarette scheduling, timers, notifications, and analytics.
 class SmokingScheduler {
@@ -191,5 +192,23 @@ class SmokingScheduler {
   }
 
   String _dateString(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
+  Future<void> scheduleDay({
+    required DateTime startLocal,
+    required int cigsPerDay,
+    required int gapMinutes,
+  }) async {
+    await NotificationService.instance.cancelAll();
+
+    for (int i = 0; i < cigsPerDay; i++) {
+      final t = startLocal.add(Duration(minutes: gapMinutes * i));
+      await NotificationService.instance.scheduleCigarette(t, id: 1000 + i);
+    }
+
+    // reset today counters
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('smoked_today', 0);
+    await prefs.setInt('skipped_today', 0);
+  }
 }
 

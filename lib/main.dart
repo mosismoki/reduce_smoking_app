@@ -10,25 +10,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
 // Local notifications
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-// App logic
+import 'notification_service.dart';
 import 'smoking_scheduler.dart';
 
-/// Expose plugin so other files (مثل main_page.dart) هم ازش استفاده کنند.
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
-
-Future<void> _initLocalNotifications() async {
-  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidInit);
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
-
-  final androidImpl =
-  flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>();
-  await androidImpl?.requestNotificationsPermission(); // ← این درست است
-}
 
 Future<void> _initFirebaseAndUser() async {
   await Firebase.initializeApp(
@@ -65,8 +49,7 @@ Future<void> _initSmokingScheduler() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await _initLocalNotifications();
+  await NotificationService.instance.init();
   await _initFirebaseAndUser();
   await _initSmokingScheduler();
 

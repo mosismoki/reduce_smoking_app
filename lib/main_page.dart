@@ -26,12 +26,29 @@ class _MainPageState extends State<MainPage> {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onCountsChanged') {
         final data = Map<String, dynamic>.from(call.arguments);
+        final action = data['action'] as String?;
+        final nextAtMillis = (data['next_at_millis'] as int?) ?? 0;
+
         setState(() {
           _scheduler.smokedToday.value =
               (data['smoked_today'] as int?) ?? 0;
           _scheduler.skippedToday.value =
               (data['skipped_today'] as int?) ?? 0;
         });
+
+        if (action == 'accept') {
+          _scheduler.registerSmoked();
+        } else if (action == 'skip') {
+          _scheduler.registerSkipped();
+        }
+
+        if (nextAtMillis > 0) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final remainingMs =
+              (nextAtMillis - now).clamp(0, 24 * 3600 * 1000);
+          _scheduler.setRemaining(
+              Duration(milliseconds: remainingMs));
+        }
         return true;
       }
       return null;

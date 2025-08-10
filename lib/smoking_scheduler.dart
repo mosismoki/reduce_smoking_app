@@ -174,6 +174,11 @@ class SmokingScheduler {
     _prefs.setInt(_skippedKey, skippedToday.value);
   }
 
+  /// Update remaining time until next cigarette.
+  void setRemaining(Duration d) {
+    remaining.value = d;
+  }
+
   /// Schedule the next cigarette.
   void scheduleNext() {
     final next = DateTime.now().add(interval);

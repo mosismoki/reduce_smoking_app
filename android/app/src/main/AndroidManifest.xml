@@ -37,13 +37,17 @@
 
         <!-- Handles action buttons (Smoke / Skip) -->
         <receiver
-            android:name="com.example.reduce_smoking_app.notifications.ActionReceiver"
-            android:exported="true">
+            android:name=".notifications.ActionReceiver"
+            android:exported="false">
             <intent-filter>
                 <action android:name="SMOKE_ACCEPT" />
                 <action android:name="SMOKE_SKIP" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".notifications.ReminderReceiver"
+            android:exported="false" />
 
         <!-- Re-schedules alarms after reboot -->
         <receiver

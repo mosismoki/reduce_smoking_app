@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'notification_service.dart';
 import 'smoking_scheduler.dart';
 
@@ -16,6 +17,26 @@ class _MainPageState extends State<MainPage> {
   final _controller = TextEditingController();
   final _scheduler = SmokingScheduler.instance;
   bool _dialogShown = false;
+
+  static const _channel = MethodChannel('smoking.native');
+
+  @override
+  void initState() {
+    super.initState();
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onCountsChanged') {
+        final data = Map<String, dynamic>.from(call.arguments);
+        setState(() {
+          _scheduler.smokedToday.value =
+              (data['smoked_today'] as int?) ?? 0;
+          _scheduler.skippedToday.value =
+              (data['skipped_today'] as int?) ?? 0;
+        });
+        return true;
+      }
+      return null;
+    });
+  }
 
   @override
   void dispose() {

@@ -83,7 +83,11 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
-        registerReceiver(countsReceiver, IntentFilter(ActionReceiver.ACTION_COUNTS_CHANGED))
+        registerReceiver(
+            countsReceiver,
+            IntentFilter(com.example.reduce_smoking_app.notifications.ActionReceiver.ACTION_COUNTS_CHANGED),
+            Context.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onDestroy() {

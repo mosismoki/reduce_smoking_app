@@ -11,7 +11,6 @@ object NotificationScheduler {
 
     const val CHANNEL_ID = "smoke_schedule_native"
 
-    // Schedules a single alarm at [triggerAtMillis].
     fun scheduleSingle(
         context: Context,
         requestCode: Int,
@@ -24,36 +23,29 @@ object NotificationScheduler {
             putExtra("body", body)
             putExtra("reqCode", requestCode)
         }
-
         val pi = PendingIntent.getBroadcast(
-            context,
-            requestCode,
-            intent,
+            context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        // ANDROID 12+ (API 31): exact alarm permission may be required
         if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
-            // No exact permission -> schedule a near-exact fallback (won't crash)
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
             return
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= 23) {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
             } else {
                 am.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
             }
         } catch (_: SecurityException) {
-            // Just in case permission was revoked between check & call
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
         }
     }
 
-    // Optional: let UI open settings so the user can allow exact alarms on Android 12+
     fun openExactAlarmSettings(context: Context) {
         if (Build.VERSION.SDK_INT >= 31) {
             val i = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -69,8 +61,7 @@ object NotificationScheduler {
             context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.cancel(pi)
+        (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
     }
 
     fun cancelAll(context: Context) {

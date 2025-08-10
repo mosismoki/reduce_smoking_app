@@ -22,7 +22,7 @@ class NotificationPublisher : BroadcastReceiver() {
         val body    = intent.getStringExtra("body")  ?: "Do you want to smoke this cigarette?"
         val reqCode = intent.getIntExtra("reqCode", 1000)
 
-        // Android 13+ — ensure POST_NOTIFICATIONS is granted
+        // Android 13+ runtime permission check
         if (Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
@@ -30,31 +30,28 @@ class NotificationPublisher : BroadcastReceiver() {
             if (!granted) return
         }
 
-        // App/channel notifications may be disabled
         val nmCompat = NotificationManagerCompat.from(context)
         if (!nmCompat.areNotificationsEnabled()) return
 
         ensureChannel(context)
 
-        // ACTION: Smoke
+        // ACTION: Smoke now
         val acceptIntent = Intent(context, ActionReceiver::class.java).apply {
             action = ActionReceiver.ACTION_ACCEPT
+            putExtra("notifId", reqCode) // will dismiss this notification
         }
         val acceptPI = PendingIntent.getBroadcast(
-            context,
-            reqCode + 5000,
-            acceptIntent,
+            context, reqCode + 5000, acceptIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         // ACTION: Skip
         val skipIntent = Intent(context, ActionReceiver::class.java).apply {
             action = ActionReceiver.ACTION_SKIP
+            putExtra("notifId", reqCode)
         }
         val skipPI = PendingIntent.getBroadcast(
-            context,
-            reqCode + 9000,
-            skipIntent,
+            context, reqCode + 9000, skipIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -72,9 +69,7 @@ class NotificationPublisher : BroadcastReceiver() {
 
         try {
             nmCompat.notify(reqCode, notification)
-        } catch (_: SecurityException) {
-            // Permission might have been revoked between check and notify.
-        }
+        } catch (_: SecurityException) { /* permission may be revoked between checks */ }
     }
 
     private fun ensureChannel(context: Context) {
@@ -87,8 +82,7 @@ class NotificationPublisher : BroadcastReceiver() {
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Exact alarms and reminder notifications for cigarette schedule."
-                    enableLights(true)
-                    lightColor = Color.WHITE
+                    enableLights(true); lightColor = Color.WHITE
                     enableVibration(true)
                 }
                 nm.createNotificationChannel(ch)

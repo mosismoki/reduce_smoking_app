@@ -11,7 +11,6 @@ import 'native_bridge.dart';
 /// Manages cigarette scheduling, timers, notifications, and analytics.
 class SmokingScheduler {
   SmokingScheduler._internal();
-
   static final SmokingScheduler instance = SmokingScheduler._internal();
 
   static const _cigsPerDayKey = 'cigsPerDay';
@@ -22,14 +21,12 @@ class SmokingScheduler {
 
   late SharedPreferences _prefs;
   final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
 
   Timer? _timer;
 
   /// Remaining time until next cigarette.
-  final ValueNotifier<Duration> remaining = ValueNotifier<Duration>(
-    Duration.zero,
-  );
+  final ValueNotifier<Duration> remaining = ValueNotifier<Duration>(Duration.zero);
 
   /// Total cigarettes smoked today.
   final ValueNotifier<int> smokedToday = ValueNotifier<int>(0);
@@ -51,10 +48,7 @@ class SmokingScheduler {
     if (cigsPerDay != null) {
       final next = _prefs.getInt(_nextCigKey);
       if (next != null) {
-        final nextTime = DateTime.fromMillisecondsSinceEpoch(
-          next,
-          isUtc: false,
-        );
+        final nextTime = DateTime.fromMillisecondsSinceEpoch(next, isUtc: false);
         _startCountdown(nextTime);
       }
     }
@@ -64,9 +58,8 @@ class SmokingScheduler {
   int? get cigsPerDay => _prefs.getInt(_cigsPerDayKey);
 
   /// Interval between cigarettes.
-  Duration get interval => cigsPerDay == null
-      ? Duration.zero
-      : Duration(minutes: (24 * 60 / cigsPerDay!).round());
+  Duration get interval =>
+      cigsPerDay == null ? Duration.zero : Duration(minutes: (24 * 60 / cigsPerDay!).round());
 
   Future<void> _initNotifications() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -97,9 +90,7 @@ class SmokingScheduler {
     );
 
     await _notifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
   }
 
@@ -114,14 +105,11 @@ class SmokingScheduler {
 
   void _startCountdown(DateTime next) {
     _timer?.cancel();
+
     void tick() {
       final now = DateTime.now();
       final diff = next.difference(now);
-      if (diff.isNegative) {
-        remaining.value = Duration.zero;
-      } else {
-        remaining.value = diff;
-      }
+      remaining.value = diff.isNegative ? Duration.zero : diff;
     }
 
     tick();
@@ -131,6 +119,7 @@ class SmokingScheduler {
   /// Schedule a local notification at [time].
   Future<void> scheduleNotification(DateTime time) async {
     if (Platform.isAndroid) {
+      // Use native scheduler via MethodChannel
       await NativeBridge.cancelAll();
       await NativeBridge.scheduleEpochList([time.millisecondsSinceEpoch]);
     } else {
@@ -153,8 +142,7 @@ class SmokingScheduler {
           iOS: DarwinNotificationDetails(categoryIdentifier: 'cigarette'),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         payload: 'cigarette',
       );
     }
@@ -174,12 +162,12 @@ class SmokingScheduler {
     _prefs.setInt(_skippedKey, skippedToday.value);
   }
 
-  /// Update remaining time until next cigarette.
+  /// Update remaining time until next cigarette (UI-only; does not start the ticker).
   void setRemaining(Duration d) {
     remaining.value = d;
   }
 
-  /// Schedule the next cigarette.
+  /// Schedule the next cigarette (used when action is taken inside the app itself).
   void scheduleNext() {
     final next = DateTime.now().add(interval);
     _prefs.setInt(_nextCigKey, next.millisecondsSinceEpoch);
@@ -187,16 +175,23 @@ class SmokingScheduler {
     scheduleNotification(next);
   }
 
-  /// User decides to smoke now.
+  /// User decides to smoke now (inside the app).
   void onSmokeNow() {
     registerSmoked();
     scheduleNext();
   }
 
-  /// User decides to skip this cigarette.
+  /// User decides to skip this cigarette (inside the app).
   void onSkip() {
     registerSkipped();
     scheduleNext();
+  }
+
+  /// NEW: Sync countdown from a native next-at timestamp (do NOT reschedule notifications here).
+  void syncNextFromMillis(int nextAtMillis) {
+    final next = DateTime.fromMillisecondsSinceEpoch(nextAtMillis);
+    _prefs.setInt(_nextCigKey, nextAtMillis);
+    _startCountdown(next); // starts the ticking timer so UI resets immediately
   }
 
   void _resetIfNewDay() {

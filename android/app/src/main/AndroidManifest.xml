@@ -10,8 +10,9 @@
         android:label="reduce_smoking_app"
         android:icon="@mipmap/ic_launcher">
 
+        <!-- Main activity -->
         <activity
-            android:name="com.example.reduce_smoking_app.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -30,14 +31,14 @@
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
 
-        <!-- Shows the notification at the scheduled time -->
+        <!-- (اختیاری) اگر جایی استفاده می‌کنی نگه دار، وگرنه حذفش کن -->
         <receiver
             android:name="com.example.reduce_smoking_app.notifications.NotificationPublisher"
             android:exported="false" />
 
-        <!-- Handles action buttons (Smoke / Skip) -->
+        <!-- Handles action buttons (Accept / Skip) -->
         <receiver
-            android:name=".notifications.ActionReceiver"
+            android:name="com.example.reduce_smoking_app.notifications.ActionReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="SMOKE_ACCEPT" />
@@ -45,11 +46,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- Shows "Time to smoke?" notification -->
         <receiver
-            android:name=".notifications.ReminderReceiver"
+            android:name="com.example.reduce_smoking_app.notifications.ReminderReceiver"
             android:exported="false" />
 
-        <!-- Re-schedules alarms after reboot -->
+        <!-- Re-schedule alarms after reboot -->
         <receiver
             android:name="com.example.reduce_smoking_app.notifications.BootReceiver"
             android:enabled="true"
@@ -61,7 +63,7 @@
 
     </application>
 
-    <!-- Optional -->
+    <!-- Optional queries (safe to keep) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

@@ -24,22 +24,28 @@ object NotificationScheduler {
             putExtra("reqCode", requestCode)
         }
         val pi = PendingIntent.getBroadcast(
-            context, requestCode, intent,
+            context,
+            requestCode,
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
-            return
-        }
+        // Prefer exact if allowed; otherwise fall back gracefully
+        val canExact = if (Build.VERSION.SDK_INT >= 31) {
+            try { am.canScheduleExactAlarms() } catch (_: Throwable) { false }
+        } else true
 
         try {
-            if (Build.VERSION.SDK_INT >= 23) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+            if (canExact) {
+                if (Build.VERSION.SDK_INT >= 23) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+                } else {
+                    am.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+                }
             } else {
-                am.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
             }
         } catch (_: SecurityException) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)
@@ -58,7 +64,9 @@ object NotificationScheduler {
     fun cancel(context: Context, requestCode: Int) {
         val intent = Intent(context, NotificationPublisher::class.java)
         val pi = PendingIntent.getBroadcast(
-            context, requestCode, intent,
+            context,
+            requestCode,
+            intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)

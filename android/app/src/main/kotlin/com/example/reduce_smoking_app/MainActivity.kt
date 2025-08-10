@@ -1,6 +1,8 @@
 package com.example.reduce_smoking_app
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -13,21 +15,39 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.example.reduce_smoking_app.notifications.NotificationScheduler
-import com.example.reduce_smoking_app.notifications.ActionReceiver
 
 class MainActivity : FlutterActivity() {
 
-    private val channelName = "smoking.native"
+    private val CHANNEL = "smoking.native"
     private val notifPermissionReqCode = 1001
 
-    private lateinit var methodChannel: MethodChannel
-    private var countsReceiver: BroadcastReceiver? = null
+    private var methodChannel: MethodChannel? = null
+
+    private val countsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent == null) return
+            if ("SMOKE_COUNTS_CHANGED" != intent.action) return
+
+            val smoked = intent.getIntExtra("smoked_today", 0)
+            val skipped = intent.getIntExtra("skipped_today", 0)
+            val action = intent.getStringExtra("action") ?: ""
+            val nextAt = intent.getLongExtra("next_at_millis", 0L)
+
+            methodChannel?.invokeMethod("onCountsChanged", mapOf(
+                "smoked_today" to smoked,
+                "skipped_today" to skipped,
+                "action" to action,
+                "next_at_millis" to nextAt
+            ))
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-        methodChannel.setMethodCallHandler { call, result ->
+        val ch = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        methodChannel = ch
+        ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 "scheduleList" -> {
                     val args = call.arguments as Map<*, *>
@@ -69,30 +89,28 @@ class MainActivity : FlutterActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notifPermissionReqCode)
         }
 
-        // Listen for native counter changes (from ActionReceiver)
-        countsReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == ActionReceiver.ACTION_COUNTS_CHANGED) {
-                    val p = getSharedPreferences("smoke_prefs", Context.MODE_PRIVATE)
-                    val smoked  = p.getInt("smoked_today", 0)
-                    val skipped = p.getInt("skipped_today", 0)
-                    methodChannel.invokeMethod(
-                        "onCountsChanged",
-                        mapOf("smoked_today" to smoked, "skipped_today" to skipped)
-                    )
-                }
-            }
-        }
-        registerReceiver(
-            countsReceiver,
-            IntentFilter(com.example.reduce_smoking_app.notifications.ActionReceiver.ACTION_COUNTS_CHANGED),
-            Context.RECEIVER_NOT_EXPORTED
-        )
+        ensureNotifChannel()
     }
 
-    override fun onDestroy() {
-        countsReceiver?.let { unregisterReceiver(it) }
-        countsReceiver = null
-        super.onDestroy()
+    override fun onResume() {
+        super.onResume()
+        registerReceiver(countsReceiver, IntentFilter("SMOKE_COUNTS_CHANGED"))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(countsReceiver)
+    }
+
+    private fun ensureNotifChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "smoke_channel",
+                "Smoking Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(channel)
+        }
     }
 }

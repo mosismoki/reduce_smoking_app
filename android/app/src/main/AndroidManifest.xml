@@ -1,0 +1,67 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:label="reduce_smoking_app"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity
+            android:name="com.example.reduce_smoking_app.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data android:name="flutterEmbedding" android:value="2" />
+
+        <!-- Shows the notification at the scheduled time -->
+        <receiver
+            android:name="com.example.reduce_smoking_app.notifications.NotificationPublisher"
+            android:exported="false" />
+
+        <!-- Handles action buttons (Smoke / Skip) -->
+        <receiver
+            android:name="com.example.reduce_smoking_app.notifications.ActionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="SMOKE_ACCEPT" />
+                <action android:name="SMOKE_SKIP" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Re-schedules alarms after reboot -->
+        <receiver
+            android:name="com.example.reduce_smoking_app.notifications.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+    <!-- Optional -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+</manifest>

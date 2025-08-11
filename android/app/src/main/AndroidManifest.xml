@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissions -->
+    <!-- Permissions (بیرون از <application>) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -31,39 +31,34 @@
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
 
-        <!-- (اختیاری) اگر جایی استفاده می‌کنی نگه دار، وگرنه حذفش کن -->
+        <!-- اگر از NotificationPublisher استفاده می‌کنی بگذار؛ وگرنه حذفش کن -->
         <receiver
-            android:name="com.example.reduce_smoking_app.notifications.NotificationPublisher"
-            android:exported="false" />
+            android:name=".notifications.NotificationPublisher"
+            android:exported="true" />
 
-        <!-- Handles action buttons (Accept / Skip) -->
+        <!-- دکمه‌های نوتیف (Smoke/Skip). exported باید true باشد -->
         <receiver
-            android:name="com.example.reduce_smoking_app.notifications.ActionReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="SMOKE_ACCEPT" />
-                <action android:name="SMOKE_SKIP" />
-            </intent-filter>
-        </receiver>
+            android:name=".notifications.ActionReceiver"
+            android:exported="true" />
 
-        <!-- Shows "Time to smoke?" notification -->
+        <!-- سازندهٔ نوتیف «Time to smoke?» -->
         <receiver
-            android:name="com.example.reduce_smoking_app.notifications.ReminderReceiver"
-            android:exported="false" />
+            android:name=".notifications.ReminderReceiver"
+            android:exported="true" />
 
-        <!-- Re-schedule alarms after reboot -->
+        <!-- باززمان‌بندی بعد از ریبوت (اختیاری) -->
         <receiver
-            android:name="com.example.reduce_smoking_app.notifications.BootReceiver"
+            android:name=".notifications.BootReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
     </application>
 
-    <!-- Optional queries (safe to keep) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

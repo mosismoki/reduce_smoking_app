@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 
 class ActionReceiver : BroadcastReceiver() {
@@ -44,12 +45,18 @@ class ActionReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // 1) زمان‌بندی نوبت بعدی (حتی وقتی اپ بسته است)
+        // ✅ بستن نوتیفیکیشن فعلی
+        val notifId = intent.getIntExtra("notifId", -1)
+        if (notifId != -1) {
+            try { NotificationManagerCompat.from(context).cancel(notifId) } catch (_: Throwable) {}
+        }
+
+        // 1) زمان‌بندی نوبت بعدی
         val nextAt = System.currentTimeMillis() + INTERVAL_MINUTES * 60_000L
         prefs.edit { putLong(KEY_NEXT_AT, nextAt) }
         scheduleNextAlarm(context, nextAt)
 
-        // 2) ارسال برودکست به اپ اگر باز است (برای آپدیت فوری UI)
+        // 2) اطلاع به اپ برای آپدیت UI
         val bcast = Intent(ACTION_COUNTS_CHANGED).apply {
             setPackage(context.packageName)
             putExtra("smoked_today", prefs.getInt(KEY_SMOKED, 0))

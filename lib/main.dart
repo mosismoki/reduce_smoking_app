@@ -2,56 +2,28 @@ import 'package:flutter/material.dart';
 
 // Pages
 import 'auth_choice_page.dart';
+import 'main_page.dart';
 
 // Firebase
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
 // Local notifications
 import 'notification_service.dart';
 import 'smoking_scheduler.dart';
 
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-Future<void> _initFirebaseAndUser() async {
+  // Init Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Sign in anonymously (safe with try/catch)
-  try {
-    await FirebaseAuth.instance.signInAnonymously();
-    debugPrint("Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}");
-  } catch (e) {
-    debugPrint("Anonymous sign-in failed: $e");
-  }
-
-  // Save basic user record (safe if offline)
-  try {
-    await FirebaseFirestore.instance.collection('users').add({
-      'uid': FirebaseAuth.instance.currentUser?.uid,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    debugPrint("User saved to Firestore");
-  } catch (e) {
-    debugPrint("Saving user to Firestore failed: $e");
-  }
-}
-
-Future<void> _initSmokingScheduler() async {
-  try {
-    await SmokingScheduler.instance.init();
-  } catch (e) {
-    debugPrint("SmokingScheduler init failed: $e");
-  }
-}
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // Init local notifications & scheduler
   await NotificationService.instance.init();
-  await _initFirebaseAndUser();
-  await _initSmokingScheduler();
+  await SmokingScheduler.instance.init();
 
   runApp(const MyApp());
 }
@@ -84,7 +56,20 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthChoicePage(),
+
+      // If user is signed in -> MainPage, else -> AuthChoicePage
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          final user = snapshot.data;
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return (user != null) ? const MainPage() : const AuthChoicePage();
+        },
+      ),
     );
   }
 }

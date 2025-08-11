@@ -1,20 +1,37 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'terms_page.dart';
+import 'main_page.dart';
+import 'services/auth_service.dart';
 
 class AuthChoicePage extends StatelessWidget {
   const AuthChoicePage({super.key});
 
   void _goToCreate(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TermsPage()),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsPage()));
   }
 
   void _goToLogin(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginPage()));
+  }
+
+  Future<void> _continueWithGoogle(BuildContext context) async {
+    try {
+      // در صورت نیاز می‌تونی extraProfile بدهی
+      await AuthService.instance.signInWithGoogle();
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainPage()),
+              (_) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -33,12 +50,20 @@ class AuthChoicePage extends StatelessWidget {
                 child: const Text('Create Account'),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => _goToLogin(context),
                 child: const Text('Log In'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => _continueWithGoogle(context),
+                child: const Text('Continue with Google'),
               ),
             ),
           ],
@@ -47,4 +72,3 @@ class AuthChoicePage extends StatelessWidget {
     );
   }
 }
-

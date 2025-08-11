@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'smoking_scheduler.dart';
+import 'services/auth_service.dart';
 import 'main_page.dart';
+import 'smoking_scheduler.dart';
+import 'services/auth_service.dart';
+
 
 class CreateAccountPage extends StatefulWidget {
-  const CreateAccountPage({super.key});
+  final DateTime termsAcceptedAt;
+  const CreateAccountPage({super.key, required this.termsAcceptedAt});
 
   @override
   State<CreateAccountPage> createState() => _CreateAccountPageState();
@@ -11,38 +15,93 @@ class CreateAccountPage extends StatefulWidget {
 
 class _CreateAccountPageState extends State<CreateAccountPage> {
   final _formKey = GlobalKey<FormState>();
+
+  // auth
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  final _displayName = TextEditingController();
+  final _username = TextEditingController(); // اختیاری؛ اگر نخواستی، می‌تونی حذف کنی
+
+  // profile
   String? _gender;
-  final _ageController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _cigarettesController = TextEditingController();
-  final _sinceController = TextEditingController();
-  final _messageController = TextEditingController();
+  final _age = TextEditingController();
+  final _country = TextEditingController();
+  final _cigsPerDay = TextEditingController();
+  final _startedYear = TextEditingController();
+  final _habits = TextEditingController();
 
   @override
   void dispose() {
-    _ageController.dispose();
-    _countryController.dispose();
-    _cigarettesController.dispose();
-    _sinceController.dispose();
-    _messageController.dispose();
+    _email.dispose();
+    _password.dispose();
+    _confirm.dispose();
+    _displayName.dispose();
+    _username.dispose();
+    _age.dispose();
+    _country.dispose();
+    _cigsPerDay.dispose();
+    _startedYear.dispose();
+    _habits.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      final cigs = int.tryParse(_cigarettesController.text);
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // (اختیاری) چک یکتا بودن یوزرنیم
+    if (_username.text.trim().isNotEmpty) {
+      final ok = await AuthService.instance.isUsernameAvailable(_username.text.trim());
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username is already taken')),
+        );
+        return;
+      }
+    }
+
+    final cigs = int.tryParse(_cigsPerDay.text.trim());
+    final profile = {
+      'displayName': _displayName.text.trim(),
+      'username': _username.text.trim(),
+      'usernameLower': _username.text.trim().toLowerCase(),
+      'gender': _gender,
+      'age': int.tryParse(_age.text.trim()),
+      'country': _country.text.trim(),
+      'cigsPerDay': cigs,
+      'startedYear': int.tryParse(_startedYear.text.trim()),
+      'habitsNote': _habits.text.trim(),
+      'termsAcceptedAt': widget.termsAcceptedAt,
+      'createdAt': DateTime.now(), // serverTimestamp هم در سرویس ست می‌کنیم
+    };
+
+    try {
+      await AuthService.instance.signUpWithEmail(
+        email: _email.text.trim(),
+        password: _password.text,
+        profile: profile,
+      );
+
+      // ست کردن برنامه‌ریز
       if (cigs != null && cigs > 0) {
         SmokingScheduler.instance.setCigsPerDay(cigs);
       }
-      debugPrint(
-        'Gender: $_gender, Age: ${_ageController.text}, Country: ${_countryController.text}, Cigarettes: ${_cigarettesController.text}, Since: ${_sinceController.text}, Message: ${_messageController.text}',
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainPage()),
 
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainPage()),
+              (_) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign up failed: $e')),
       );
     }
   }
+
+  String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +113,40 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
           key: _formKey,
           child: ListView(
             children: [
+              // Auth fields
+              TextFormField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+                validator: _req,
+              ),
+              TextFormField(
+                controller: _password,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (v) {
+                  if (v == null || v.length < 6) return 'Min 6 characters';
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _confirm,
+                decoration: const InputDecoration(labelText: 'Confirm password'),
+                obscureText: true,
+                validator: (v) => v != _password.text ? 'Passwords do not match' : null,
+              ),
+              TextFormField(
+                controller: _displayName,
+                decoration: const InputDecoration(labelText: 'Name (display name)'),
+                validator: _req,
+              ),
+              TextFormField(
+                controller: _username,
+                decoration: const InputDecoration(labelText: 'Username (optional)'),
+              ),
+              const Divider(height: 32),
+
+              // Profile fields (قبلی‌های خودت + اعتبارسنجی ساده)
               DropdownButtonFormField<String>(
                 value: _gender,
                 decoration: const InputDecoration(labelText: 'Gender'),
@@ -62,34 +155,34 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                   DropdownMenuItem(value: 'Female', child: Text('Female')),
                   DropdownMenuItem(value: 'Other', child: Text('Other')),
                 ],
-                onChanged: (value) => setState(() => _gender = value),
-                validator: (value) => value == null ? 'Please select your gender' : null,
+                onChanged: (v) => setState(() => _gender = v),
+                validator: (v) => v == null ? 'Please select your gender' : null,
               ),
               TextFormField(
-                controller: _ageController,
+                controller: _age,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Age'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter your age' : null,
+                validator: _req,
               ),
               TextFormField(
-                controller: _countryController,
+                controller: _country,
                 decoration: const InputDecoration(labelText: 'Country'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter your country' : null,
+                validator: _req,
               ),
               TextFormField(
-                controller: _cigarettesController,
+                controller: _cigsPerDay,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Cigarettes per day'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter number of cigarettes' : null,
+                validator: _req,
               ),
               TextFormField(
-                controller: _sinceController,
+                controller: _startedYear,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Since when you smoke (year)'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter year' : null,
+                validator: _req,
               ),
               TextFormField(
-                controller: _messageController,
+                controller: _habits,
                 decoration: const InputDecoration(labelText: 'Tell us about your smoking habits'),
                 maxLines: 3,
               ),
@@ -108,4 +201,3 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     );
   }
 }
-

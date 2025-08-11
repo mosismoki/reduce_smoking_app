@@ -3,7 +3,6 @@ import 'create_account_page.dart';
 
 class TermsPage extends StatefulWidget {
   const TermsPage({super.key});
-
   @override
   State<TermsPage> createState() => _TermsPageState();
 }
@@ -12,8 +11,9 @@ class _TermsPageState extends State<TermsPage> {
   bool _agreed = false;
 
   void _continue() {
+    final acceptedAt = DateTime.now();
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CreateAccountPage()),
+      MaterialPageRoute(builder: (_) => CreateAccountPage(termsAcceptedAt: acceptedAt)),
     );
   }
 
@@ -27,11 +27,8 @@ class _TermsPageState extends State<TermsPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Terms and Conditions',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
+                const Text('Terms and Conditions',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 const Text(
                   'Placeholder terms and conditions go here. Please read them carefully before continuing.',
@@ -40,7 +37,7 @@ class _TermsPageState extends State<TermsPage> {
                 const SizedBox(height: 24),
                 CheckboxListTile(
                   value: _agreed,
-                  onChanged: (value) => setState(() => _agreed = value ?? false),
+                  onChanged: (v) => setState(() => _agreed = v ?? false),
                   title: const Text('I agree to the terms and conditions'),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
@@ -60,4 +57,3 @@ class _TermsPageState extends State<TermsPage> {
     );
   }
 }
-

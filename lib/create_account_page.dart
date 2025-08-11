@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
 import 'main_page.dart';
-import 'smoking_scheduler.dart';
+import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
 import 'services/auth_service.dart';
 
 

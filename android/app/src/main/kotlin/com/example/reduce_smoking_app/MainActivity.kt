@@ -27,7 +27,6 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
 
-        // RESTORED: handle scheduling/cancel/etc. from Dart
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "scheduleList" -> {
@@ -36,14 +35,11 @@ class MainActivity : FlutterActivity() {
                     val title = (args["title"] as? String) ?: "Cigarette time"
                     val body  = (args["body"]  as? String) ?: "Do you want to smoke this cigarette?"
                     var rc = 1000
-                    times.forEach { t ->
-                        NotificationScheduler.scheduleSingle(this, rc++, t, title, body)
-                    }
+                    times.forEach { t -> NotificationScheduler.scheduleSingle(this, rc++, t, title, body) }
                     result.success(true)
                 }
                 "cancelAll" -> {
-                    NotificationScheduler.cancelAll(this)
-                    result.success(true)
+                    NotificationScheduler.cancelAll(this); result.success(true)
                 }
                 "getTodayCounts" -> {
                     val p = getSharedPreferences("smoke_prefs", Context.MODE_PRIVATE)
@@ -58,18 +54,13 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "openExactAlarmSettings" -> {
-                    com.example.reduce_smoking_app.notifications.NotificationScheduler
-                        .openExactAlarmSettings(this)
+                    com.example.reduce_smoking_app.notifications.NotificationScheduler.openExactAlarmSettings(this)
                     result.success(true)
                 }
-
-                // (اختیاری) تست فوری: نمایش نوتیف همین الان
                 "debugShowReminderNow" -> {
-                    sendBroadcast(Intent(this,
-                        com.example.reduce_smoking_app.notifications.ReminderReceiver::class.java))
+                    sendBroadcast(Intent(this, com.example.reduce_smoking_app.notifications.ReminderReceiver::class.java))
                     result.success(true)
                 }
-
                 else -> result.notImplemented()
             }
         }
@@ -79,28 +70,28 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         ensureNotifChannel()
 
-        // Android 13+ notification permission
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notifPermissionReqCode)
         }
 
-        // Prepare receiver (register in onResume)
         countsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val action = intent.action ?: return
                 if (action == ActionReceiver.ACTION_COUNTS_CHANGED || action == "SMOKE_COUNTS_CHANGED") {
-                    val smoked  = intent.getIntExtra("smoked_today", 0)
-                    val skipped = intent.getIntExtra("skipped_today", 0)
-                    val act     = intent.getStringExtra("action") ?: ""
-                    val nextAt  = intent.getLongExtra("next_at_millis", 0L)
+                    val smoked    = intent.getIntExtra("smoked_today", 0)
+                    val skipped   = intent.getIntExtra("skipped_today", 0)
+                    val act       = intent.getStringExtra("action") ?: ""
+                    val nextAt    = intent.getLongExtra("nextCigTimestamp", 0L)
+                    val windowEnd = intent.getLongExtra("smokingWindowEndTs", 0L)
 
                     methodChannel.invokeMethod("onCountsChanged", mapOf(
                         "smoked_today" to smoked,
                         "skipped_today" to skipped,
                         "action" to act,
-                        "next_at_millis" to nextAt
+                        "next_at_millis" to nextAt,
+                        "smokingWindowEndTs" to windowEnd
                     ))
                 }
             }
@@ -119,6 +110,8 @@ class MainActivity : FlutterActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(countsReceiver, filter)
         }
+        // هر بار که صفحه فعال می‌شود، وضعیت فعلی را هم به دارت پوش کن
+        pushCountsNow()
     }
 
     override fun onPause() {
@@ -129,12 +122,27 @@ class MainActivity : FlutterActivity() {
     private fun ensureNotifChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "smoke_channel",
-                "Smoking Reminders",
-                NotificationManager.IMPORTANCE_HIGH
+                "smoke_channel", "Smoking Reminders", NotificationManager.IMPORTANCE_HIGH
             )
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(channel)
         }
+    }
+
+    /** وضعیت فعلی را از SharedPreferences برداشته و به Flutter می‌فرستد */
+    private fun pushCountsNow() {
+        val p = getSharedPreferences("smoke_prefs", Context.MODE_PRIVATE)
+        val smoked    = p.getInt("smoked_today", 0)
+        val skipped   = p.getInt("skipped_today", 0)
+        val nextAt    = p.getLong("nextCigTimestamp", 0L)
+        val windowEnd = p.getLong("smokingWindowEndTs", 0L)
+
+        methodChannel.invokeMethod("onCountsChanged", mapOf(
+            "smoked_today" to smoked,
+            "skipped_today" to skipped,
+            "action" to "",
+            "next_at_millis" to nextAt,
+            "smokingWindowEndTs" to windowEnd
+        ))
     }
 }

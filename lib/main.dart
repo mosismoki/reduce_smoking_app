@@ -11,7 +11,7 @@ import 'firebase_options.dart';
 
 // Local notifications
 import 'notification_service.dart';
-import 'smoking_scheduler.dart';
+import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

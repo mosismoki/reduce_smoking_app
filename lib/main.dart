@@ -9,20 +9,22 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
-// Local notifications
+// Local notifications & scheduler
 import 'notification_service.dart';
 import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Init Firebase
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Init local notifications & scheduler
+  // Initialize local notifications
   await NotificationService.instance.init();
+
+  // Initialize smoking scheduler (loads prefs & starts/resumes countdown)
   await SmokingScheduler.instance.init();
 
   runApp(const MyApp());
@@ -34,6 +36,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Reduce Smoking App',
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFF001F54),
@@ -56,17 +59,15 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-
-      // If user is signed in -> MainPage, else -> AuthChoicePage
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          final user = snapshot.data;
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
           }
+          final user = snapshot.data;
           return (user != null) ? const MainPage() : const AuthChoicePage();
         },
       ),

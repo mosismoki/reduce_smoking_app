@@ -12,32 +12,35 @@ class SmokingScheduler {
   static final SmokingScheduler instance = SmokingScheduler._internal();
 
   // Keys
-  static const _cigsPerDayKey   = 'cigsPerDay';
-  static const _nextCigKey      = 'nextCigTimestamp';
-  static const _windowEndKey    = 'smokingWindowEndTs';
-  static const _smokedKey       = 'smoked_today';
-  static const _skippedKey      = 'skipped_today';
-  static const _dateKey         = 'statsDate';
+  static const _cigsPerDayKey = 'cigsPerDay';
+  static const _nextCigKey    = 'nextCigTimestamp';   // millis
+  static const _windowEndKey  = 'smokingWindowEndTs'; // millis
+  static const _smokedKey     = 'smoked_today';
+  static const _skippedKey    = 'skipped_today';
+  static const _dateKey       = 'statsDate';          // yyyymmdd
 
   late SharedPreferences _prefs;
   Timer? _timer;
 
   // UI state
-  final ValueNotifier<Duration> remaining = ValueNotifier(Duration.zero);
-  final ValueNotifier<int> smokedToday    = ValueNotifier(0);
-  final ValueNotifier<int> skippedToday   = ValueNotifier(0);
-  final ValueNotifier<bool> inSmokingWindow = ValueNotifier(false);
+  final ValueNotifier<Duration> remaining       = ValueNotifier(Duration.zero);
+  final ValueNotifier<int>      smokedToday     = ValueNotifier(0);
+  final ValueNotifier<int>      skippedToday    = ValueNotifier(0);
+  final ValueNotifier<bool>     inSmokingWindow = ValueNotifier(false);
 
-  // 👇 گتر عمومی برای استفاده در MainPage
   int? get cigsPerDay => _prefs.getInt(_cigsPerDayKey);
 
   final FlutterLocalNotificationsPlugin _notifications =
   FlutterLocalNotificationsPlugin();
 
+  // ---- FIX: Safe interval (seconds-based, min 30s) ----
   Duration get _interval {
-    final cigs = _prefs.getInt(_cigsPerDayKey) ?? 0;
-    if (cigs <= 0) return Duration.zero;
-    return Duration(minutes: (24 * 60 / cigs).round());
+    final raw = _prefs.getInt(_cigsPerDayKey) ?? 0;
+    if (raw <= 0) return Duration.zero;
+    final cpd = raw.clamp(1, 2000); // safety bounds
+    final secs = (86400 / cpd).floor();
+    final safeSecs = secs < 30 ? 30 : secs;
+    return Duration(seconds: safeSecs);
   }
 
   Future<void> init() async {
@@ -62,7 +65,7 @@ class SmokingScheduler {
 
   Future<void> setCigsPerDay(int value) async {
     await _prefs.setInt(_cigsPerDayKey, value);
-    await scheduleNext();
+    await scheduleNext(); // re-schedule with new interval
   }
 
   Future<void> smokeNow() async {
@@ -87,15 +90,20 @@ class SmokingScheduler {
   }
 
   Future<void> scheduleNext() async {
-    final next = DateTime.now().add(_interval);
-    await _prefs.setInt(_nextCigKey, next.millisecondsSinceEpoch);
+    final step = _interval;
+    if (step == Duration.zero) return;
+
+    final next = DateTime.now().add(step);
+    final nextMs = next.millisecondsSinceEpoch;
+
+    await _prefs.setInt(_nextCigKey, nextMs);
     await _prefs.setInt(_windowEndKey, 0);
     inSmokingWindow.value = false;
 
     if (Platform.isAndroid) {
       try {
         await NativeBridge.cancelAll();
-        await NativeBridge.scheduleEpochList([next.millisecondsSinceEpoch]);
+        await NativeBridge.scheduleEpochList([nextMs]);
       } catch (_) {
         await _scheduleLocalNotification(next);
       }
@@ -103,69 +111,94 @@ class SmokingScheduler {
       await _scheduleLocalNotification(next);
     }
 
-    _startCountdownTo(next.millisecondsSinceEpoch);
+    _startCountdownTo(nextMs);
   }
 
+  // ---- FIX: robust restore + fast-forward if past ----
   Future<void> _startOrRepairCountdown() async {
-    final nowMs  = DateTime.now().millisecondsSinceEpoch;
-    final winEnd = _prefs.getInt(_windowEndKey) ?? 0;
-    var   nextTs = _prefs.getInt(_nextCigKey)   ?? 0;
+    final nowMs   = DateTime.now().millisecondsSinceEpoch;
+    final winEnd  = _prefs.getInt(_windowEndKey) ?? 0;
+    int   nextTs  = _prefs.getInt(_nextCigKey)   ?? 0;
 
-    int target;
+    final step = _interval;
+    if (step == Duration.zero) return;
+
+    int targetMs;
+
     if (winEnd > nowMs) {
-      target = winEnd;
+      // still inside 5-minute window
+      targetMs = winEnd;
       inSmokingWindow.value = true;
     } else {
-      if (nextTs <= nowMs || nextTs == 0) {
-        final next = DateTime.now().add(_interval);
-        nextTs = next.millisecondsSinceEpoch;
-        await _prefs.setInt(_nextCigKey, nextTs);
-
-        if (Platform.isAndroid) {
-          try {
-            await NativeBridge.cancelAll();
-            await NativeBridge.scheduleEpochList([nextTs]);
-          } catch (_) {
-            await _scheduleLocalNotification(DateTime.fromMillisecondsSinceEpoch(nextTs));
-          }
-        } else {
-          await _scheduleLocalNotification(DateTime.fromMillisecondsSinceEpoch(nextTs));
-        }
-      }
-      target = nextTs;
       inSmokingWindow.value = false;
+
+      if (nextTs <= 0) {
+        nextTs = DateTime.now().add(step).millisecondsSinceEpoch;
+      } else if (nextTs <= nowMs) {
+        // Fast-forward in fixed multiples until the next time is in the future
+        final delta = nowMs - nextTs;
+        final steps = (delta ~/ step.inMilliseconds) + 1;
+        nextTs += steps * step.inMilliseconds;
+      }
+
+      await _prefs.setInt(_nextCigKey, nextTs);
+      targetMs = nextTs;
+
+      // Ensure a notification is scheduled (best-effort)
+      if (Platform.isAndroid) {
+        try {
+          await NativeBridge.cancelAll();
+          await NativeBridge.scheduleEpochList([nextTs]);
+        } catch (_) {
+          await _scheduleLocalNotification(
+              DateTime.fromMillisecondsSinceEpoch(nextTs));
+        }
+      } else {
+        await _scheduleLocalNotification(
+            DateTime.fromMillisecondsSinceEpoch(nextTs));
+      }
     }
 
-    _startCountdownTo(target);
+    _startCountdownTo(targetMs);
   }
 
   void _startCountdownTo(int targetMs) {
     _timer?.cancel();
+
     void tick() {
-      final remain = targetMs - DateTime.now().millisecondsSinceEpoch;
-      if (remain <= 0) {
+      final remainMs = targetMs - DateTime.now().millisecondsSinceEpoch;
+
+      if (remainMs <= 0) {
         _timer?.cancel();
         if (inSmokingWindow.value) {
+          // After 5-min window ends, immediately schedule next slot
           scheduleNext();
         } else {
+          // Wait for user action (Accept/Skip) or notification action
           remaining.value = Duration.zero;
         }
       } else {
-        remaining.value = Duration(milliseconds: remain);
+        remaining.value = Duration(milliseconds: remainMs);
       }
     }
+
     tick();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
-  void syncNextFromMillis(int millis) {
+  // Optional: when native sends a new exact millis
+  Future<void> syncNextFromMillis(int millis) async {
+    await _prefs.setInt(_nextCigKey, millis);
+    inSmokingWindow.value = false;
     _startCountdownTo(millis);
   }
 
   Future<void> _scheduleLocalNotification(DateTime time) async {
     final android = const AndroidNotificationDetails(
-      'cigarette_channel', 'Cigarette schedule',
-      importance: Importance.max, priority: Priority.high,
+      'cigarette_channel',
+      'Cigarette schedule',
+      importance: Importance.max,
+      priority: Priority.high,
     );
     final iOS = const DarwinNotificationDetails();
     final details = NotificationDetails(android: android, iOS: iOS);
@@ -183,15 +216,20 @@ class SmokingScheduler {
     );
   }
 
+  // ---- FIX: date key normalized yyyymmdd ----
   void _resetIfNewDay() {
-    final today = DateTime.now();
-    final key = '${today.year}-${today.month}-${today.day}';
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final todayKey = '$y$m$d';
+
     final stored = _prefs.getString(_dateKey);
-    if (stored != key) {
+    if (stored != todayKey) {
       smokedToday.value = 0;
       skippedToday.value = 0;
       _prefs
-        ..setString(_dateKey, key)
+        ..setString(_dateKey, todayKey)
         ..setInt(_smokedKey, 0)
         ..setInt(_skippedKey, 0);
     }

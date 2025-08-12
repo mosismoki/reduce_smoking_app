@@ -4,14 +4,13 @@ import 'package:flutter/services.dart';
 import 'notification_service.dart';
 import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
 
-
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
   @override
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final _scheduler = SmokingScheduler.instance;
   static const _channel = MethodChannel('smoking.native');
@@ -20,13 +19,13 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
 
-    // 1) راه‌اندازی Scheduler
-    SmokingScheduler.instance.init().then((_) async {
-      // 2) pull فوری از prefs
-      await SmokingScheduler.instance.refreshFromPrefs();
-    });
+    // Observe lifecycle to refresh on resume
+    WidgetsBinding.instance.addObserver(this);
 
-    // 3) رویدادهای نیتیو
+    // Pull current values immediately (init already ran in main.dart)
+    _scheduler.refreshFromPrefs();
+
+    // Native events
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onCountsChanged') {
         final data = Map<String, dynamic>.from(call.arguments);
@@ -39,7 +38,6 @@ class _MainPageState extends State<MainPage> {
           _scheduler.skippedToday.value = (data['skipped_today'] as int?) ?? 0;
         });
 
-        // اگر داخل پنجره ۵ دقیقه‌ای هستیم، همون پنجره را در UI بشمار
         if (windowEndMs > nowMs) {
           _scheduler.inSmokingWindow.value = true;
           _scheduler.syncNextFromMillis(windowEndMs);
@@ -54,12 +52,20 @@ class _MainPageState extends State<MainPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduler.refreshFromPrefs(); // ← سنک فوری بعد از برگشت
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
 
-  // iOS only helper
+  // iOS only helper (optional)
   Future<void> _showReminderNotification() async {
     if (Platform.isAndroid) return;
     await NotificationService.instance.scheduleCigarette(DateTime.now(), id: 999);
@@ -76,7 +82,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    // اگر هنوز cigsPerDay تعیین نشده
+    // If cigsPerDay not set yet -> setup screen
     if (_scheduler.cigsPerDay == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Set Daily Cigarettes')),
@@ -92,11 +98,12 @@ class _MainPageState extends State<MainPage> {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   final value = int.tryParse(_controller.text);
                   if (value != null && value > 0) {
-                    _scheduler.setCigsPerDay(value);
-                    setState(() {});
+                    await _scheduler.setCigsPerDay(value);
+                    await _scheduler.refreshFromPrefs(); // ← UI فوری آپدیت شود
+                    if (mounted) setState(() {});
                   }
                 },
                 child: const Text('Start'),
@@ -108,7 +115,7 @@ class _MainPageState extends State<MainPage> {
       );
     }
 
-    // صفحه تایمر
+    // Timer page
     return Scaffold(
       appBar: AppBar(title: const Text('Cigarette Timer')),
       body: Stack(
@@ -126,7 +133,7 @@ class _MainPageState extends State<MainPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // لیبل پنجره ۵ دقیقه‌ای (وقتی فعال است)
+                  // 5-min smoking window badge
                   ValueListenableBuilder<bool>(
                     valueListenable: _scheduler.inSmokingWindow,
                     builder: (context, isWindow, _) {
@@ -135,13 +142,15 @@ class _MainPageState extends State<MainPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent, borderRadius: BorderRadius.circular(12),
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text('Smoking window', style: TextStyle(color: Colors.white)),
                       );
                     },
                   ),
-                  // تایمر
+
+                  // Countdown timer
                   ValueListenableBuilder<Duration>(
                     valueListenable: _scheduler.remaining,
                     builder: (context, duration, _) {
@@ -151,7 +160,8 @@ class _MainPageState extends State<MainPage> {
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.black, borderRadius: BorderRadius.circular(12),
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Next cigarette in: $hh:$mm:$ss',
@@ -161,6 +171,8 @@ class _MainPageState extends State<MainPage> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // Stats
                   ValueListenableBuilder<int>(
                     valueListenable: _scheduler.smokedToday,
                     builder: (context, count, _) => Text('Smoked today: $count'),

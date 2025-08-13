@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 
 // Pages
@@ -13,6 +14,9 @@ import 'firebase_options.dart';
 import 'notification_service.dart';
 import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
 
+/// Toggle this to quickly enable/disable auto anonymous sign-in for testing.
+const bool kAutoAnonymousSignIn = false;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -20,6 +24,14 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Optional: auto sign-in anonymously for fast testing
+  if (kAutoAnonymousSignIn) {
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      await auth.signInAnonymously();
+    }
+  }
 
   // Initialize local notifications
   await NotificationService.instance.init();
@@ -68,6 +80,8 @@ class MyApp extends StatelessWidget {
             );
           }
           final user = snapshot.data;
+          // If kAutoAnonymousSignIn = true, user will never be null after init.
+          // If you set it to false, you'll see AuthChoicePage when logged out.
           return (user != null) ? const MainPage() : const AuthChoicePage();
         },
       ),

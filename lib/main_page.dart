@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// ⛔️ Remove Firestore import – not needed with TodayStats stream
+// Firestore را فعلاً استفاده نمی‌کنیم
 // import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'services/data_service.dart';
@@ -37,15 +37,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       if (mounted) setState(() => _ready = true);
     });
 
+    // Native -> Flutter updates
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onCountsChanged') {
         final Map<String, dynamic> data =
         Map<String, dynamic>.from(call.arguments ?? {});
 
-        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        final nowMs        = DateTime.now().millisecondsSinceEpoch;
         final nextAtMillis = (data['next_at_millis'] as int?) ?? 0;
-        final windowEndMs = (data['smokingWindowEndTs'] as int?) ?? 0;
+        final windowEndMs  = (data['smokingWindowEndTs'] as int?) ?? 0;
 
+        // آمار روز را از نیتیو بگیر
         if (data.containsKey('smoked_today')) {
           _scheduler.smokedToday.value =
               (data['smoked_today'] as int?) ?? _scheduler.smokedToday.value;
@@ -55,17 +57,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               (data['skipped_today'] as int?) ?? _scheduler.skippedToday.value;
         }
 
+        // تشخیص نوع شمارش‌گر و سینک
         if (windowEndMs > nowMs) {
-          _scheduler.inSmokingWindow.value = true;
-          _scheduler.syncNextFromMillis(windowEndMs);
+          await _scheduler.syncFromMillis(windowEndMs, isWindow: true);
         } else if (nextAtMillis > 0) {
-          _scheduler.inSmokingWindow.value = false;
-          _scheduler.syncNextFromMillis(nextAtMillis);
+          await _scheduler.syncFromMillis(nextAtMillis, isWindow: false);
         }
 
-        final newSmoked = _scheduler.smokedToday.value;
+        // فقط اگر واقعاً زیاد شده، به کلود بفرست
+        final newSmoked  = _scheduler.smokedToday.value;
         final newSkipped = _scheduler.skippedToday.value;
-
         if (newSmoked > _lastSmoked) {
           _lastSmoked = newSmoked;
           await DataService.instance.incrementSmoked();
@@ -74,6 +75,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _lastSkipped = newSkipped;
           await DataService.instance.incrementSkipped();
         }
+
+        if (mounted) setState(() {});
         return true;
       }
       return null;
@@ -100,7 +103,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   Future<void> _showReminderNotification() async {
     if (Platform.isAndroid) return;
-    await NotificationService.instance.scheduleCigarette(DateTime.now(), id: 999);
+    await NotificationService.instance
+        .scheduleCigarette(DateTime.now(), id: 999);
   }
 
   Widget _buildBottomNav() => BottomNavigationBar(
@@ -111,7 +115,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
     ],
   );
-
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +136,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               TextField(
                 controller: _controller,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Cigarettes per day'),
+                decoration:
+                const InputDecoration(labelText: 'Cigarettes per day'),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -182,27 +186,38 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // برچسب پنجره ۵ دقیقه‌ای
                   ValueListenableBuilder<bool>(
                     valueListenable: _scheduler.inSmokingWindow,
                     builder: (context, isWindow, _) {
                       if (!isWindow) return const SizedBox.shrink();
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text('Smoking window', style: TextStyle(color: Colors.white)),
+                        child: const Text('Smoking window',
+                            style: TextStyle(color: Colors.white)),
                       );
                     },
                   ),
+                  // تایمر
                   ValueListenableBuilder<Duration>(
                     valueListenable: _scheduler.remaining,
                     builder: (context, duration, _) {
-                      final hh = duration.inHours.toString().padLeft(2, '0');
-                      final mm = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-                      final ss = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+                      final hh =
+                      duration.inHours.toString().padLeft(2, '0');
+                      final mm = duration.inMinutes
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
+                      final ss = duration.inSeconds
+                          .remainder(60)
+                          .toString()
+                          .padLeft(2, '0');
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -210,33 +225,40 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'Next cigarette in: $hh:$mm:$ss',
+                          _scheduler.inSmokingWindow.value
+                              ? 'Window ends in: $hh:$mm:$ss'
+                              : 'Next cigarette in: $hh:$mm:$ss',
                           style: const TextStyle(color: Colors.white),
                         ),
                       );
                     },
                   ),
+
                   const SizedBox(height: 16),
+                  // آمار لوکال (Prefs)
                   ValueListenableBuilder<int>(
                     valueListenable: _scheduler.smokedToday,
-                    builder: (context, cnt, _) => Text('Smoked today: $cnt'),
+                    builder: (context, cnt, _) =>
+                        Text('Smoked today: $cnt'),
                   ),
                   const SizedBox(height: 8),
                   ValueListenableBuilder<int>(
                     valueListenable: _scheduler.skippedToday,
-                    builder: (context, cnt, _) => Text('Skipped today: $cnt'),
+                    builder: (context, cnt, _) =>
+                        Text('Skipped today: $cnt'),
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Buttons (local counters + persist via DataService)
+                  // دکمه‌ها (به Scheduler وصل)
                   Wrap(
                     spacing: 12,
                     children: [
                       ElevatedButton.icon(
                         onPressed: () async {
-                          _scheduler.smokedToday.value++;
-                          _lastSmoked = _scheduler.smokedToday.value;
-                          await DataService.instance.incrementSmoked();
+                          await _scheduler.smokeNow();
+                          // (اختیاری) سینک با کلود:
+                          // await DataService.instance.incrementSmoked();
                           if (mounted) setState(() {});
                         },
                         icon: const Icon(Icons.local_fire_department),
@@ -244,28 +266,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       ),
                       OutlinedButton.icon(
                         onPressed: () async {
-                          _scheduler.skippedToday.value++;
-                          _lastSkipped = _scheduler.skippedToday.value;
-                          await DataService.instance.incrementSkipped();
+                          await _scheduler.skipNow();
+                          // (اختیاری) سینک با کلود:
+                          // await DataService.instance.incrementSkipped();
                           if (mounted) setState(() {});
                         },
-                        icon: const Icon(Icons.thumb_up_alt_outlined),
+                        icon:
+                        const Icon(Icons.thumb_up_alt_outlined),
                         label: const Text('Mark Skipped'),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 8),
-
-                  // 🔁 Show live stats from DataService (TodayStats stream)
-                  StreamBuilder<TodayStats>(
-                    stream: DataService.instance.watchToday(),
-                    builder: (context, snap) {
-                      final stats = snap.data ??
-                          TodayStats(smoked: 0, skipped: 0, date: DateTime.now());
-                      return Text('Server → Smoked: ${stats.smoked} | Skipped: ${stats.skipped}');
-                    },
-                  ),
+                  // (اختیاری) استریم کلود…
                 ],
               ),
             ),

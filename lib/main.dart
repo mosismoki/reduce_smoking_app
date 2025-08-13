@@ -10,9 +10,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
-// Local notifications & scheduler
+// Local services
 import 'notification_service.dart';
-import 'package:reduce_smoking_app/services/smoking_scheduler.dart';
+import 'services/smoking_scheduler.dart'; // ← relative import (not package:)
+import 'services/data_service.dart';      // ← for local persisted stats
 
 /// Toggle this to quickly enable/disable auto anonymous sign-in for testing.
 const bool kAutoAnonymousSignIn = false;
@@ -20,12 +21,11 @@ const bool kAutoAnonymousSignIn = false;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
+  // 1) Firebase (optional auth)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Optional: auto sign-in anonymously for fast testing
   if (kAutoAnonymousSignIn) {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
@@ -33,11 +33,10 @@ Future<void> main() async {
     }
   }
 
-  // Initialize local notifications
+  // 2) Local services
   await NotificationService.instance.init();
-
-  // Initialize smoking scheduler (loads prefs & starts/resumes countdown)
-  await SmokingScheduler.instance.init();
+  await SmokingScheduler.instance.init(); // loads prefs & timers
+  await DataService.instance.init();      // loads SharedPreferences & stream
 
   runApp(const MyApp());
 }
@@ -71,6 +70,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      // If kAutoAnonymousSignIn = true you will never see AuthChoicePage.
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
@@ -80,8 +80,6 @@ class MyApp extends StatelessWidget {
             );
           }
           final user = snapshot.data;
-          // If kAutoAnonymousSignIn = true, user will never be null after init.
-          // If you set it to false, you'll see AuthChoicePage when logged out.
           return (user != null) ? const MainPage() : const AuthChoicePage();
         },
       ),

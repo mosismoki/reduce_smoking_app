@@ -15,9 +15,11 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private val CHANNEL = "smoking.native"
-    private lateinit var channel: MethodChannel
+    private companion object {
+        const val CHANNEL = "smoking.native"
+    }
 
+    private lateinit var channel: MethodChannel
     private var countsReceiver: BroadcastReceiver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -42,29 +44,34 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // شنونده‌ی برادکست که از ActionReceiver می‌آید
+
+        // Receiver for app-internal broadcast from ActionReceiver
         countsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == ActionReceiver.ACTION_COUNTS_CHANGED) {
                     val data = hashMapOf<String, Any>(
-                        "smoked_today" to (intent.getIntExtra("smoked_today", 0)),
-                        "skipped_today" to (intent.getIntExtra("skipped_today", 0)),
-                        "smokingWindowEndTs" to (intent.getLongExtra("smokingWindowEndTs", 0L)),
-                        "nextCigTimestamp" to (intent.getLongExtra("nextCigTimestamp", 0L)),
-                        "next_at_millis" to (intent.getLongExtra("next_at_millis", 0L))
+                        "smoked_today" to intent.getIntExtra("smoked_today", 0),
+                        "skipped_today" to intent.getIntExtra("skipped_today", 0),
+                        "smokingWindowEndTs" to intent.getLongExtra("smokingWindowEndTs", 0L),
+                        "nextCigTimestamp" to intent.getLongExtra("nextCigTimestamp", 0L),
+                        "next_at_millis" to intent.getLongExtra("next_at_millis", 0L),
+                        "window_timeout" to intent.getBooleanExtra("window_timeout", false)
                     )
-                    // روی ترد اصلی به فلاتر پاس بده
                     Handler(Looper.getMainLooper()).post {
                         channel.invokeMethod("onCountsChanged", data)
                     }
                 }
             }
         }
-        registerReceiver(
-            countsReceiver,
-            IntentFilter(ActionReceiver.ACTION_COUNTS_CHANGED),
-            RECEIVER_EXPORTED
-        )
+
+        val filter = IntentFilter(ActionReceiver.ACTION_COUNTS_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // For API 33+: must specify NOT_EXPORTED (internal to app)
+            registerReceiver(countsReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(countsReceiver, filter)
+        }
     }
 
     override fun onDestroy() {

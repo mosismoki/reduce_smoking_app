@@ -1,3 +1,4 @@
+// lib/services/smoking_scheduler.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -11,7 +12,7 @@ class SmokingScheduler {
   SmokingScheduler._internal();
   static final SmokingScheduler instance = SmokingScheduler._internal();
 
-  // Keys (با FlutterSharedPreferences هم‌خوان)
+  // Keys (هماهنگ با FlutterSharedPreferences)
   static const _kCigsPerDay = 'cigsPerDay';
   static const _kNextTs     = 'nextCigTimestamp';   // millis
   static const _kWinEndTs   = 'smokingWindowEndTs'; // millis
@@ -29,11 +30,11 @@ class SmokingScheduler {
 
   int? get cigsPerDay => _prefs.getInt(_kCigsPerDay);
 
-  // برای iOS استفاده می‌شود؛ روی اندروید دیگر ازش استفاده نمی‌کنیم
+  // فقط برای iOS استفاده می‌شود؛ روی اندروید نوتیف را نیتیو زمان‌بندی می‌کنیم
   final FlutterLocalNotificationsPlugin _notifications =
   FlutterLocalNotificationsPlugin();
 
-  // فاصله امن (ثانیه‌ای، حداقل 30s)
+  // فاصلهٔ ایمن (حداقل 30 ثانیه)
   Duration get _interval {
     final raw = _prefs.getInt(_kCigsPerDay) ?? 0;
     if (raw <= 0) return Duration.zero;
@@ -48,6 +49,7 @@ class SmokingScheduler {
     _resetIfNewDay();
     smokedToday.value  = _prefs.getInt(_kSmoked)  ?? 0;
     skippedToday.value = _prefs.getInt(_kSkipped) ?? 0;
+
     if ((_prefs.getInt(_kCigsPerDay) ?? 0) > 0) {
       await _startOrRepairCountdown();
     }
@@ -65,6 +67,7 @@ class SmokingScheduler {
     await scheduleNext();
   }
 
+  /// شبیه ACCEPT از نوتیف، وقتی پنجره باز نیست → پنجره ۵ دقیقه‌ای را باز می‌کند.
   Future<void> smokeNow() async {
     _resetIfNewDay();
     smokedToday.value += 1;
@@ -72,6 +75,7 @@ class SmokingScheduler {
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final winEnd = now + const Duration(minutes: 5).inMilliseconds;
+
     await _prefs.setInt(_kWinEndTs, winEnd);
     await _prefs.setInt(_kNextTs, 0);
     inSmokingWindow.value = true;
@@ -79,6 +83,7 @@ class SmokingScheduler {
     _startCountdownTo(winEnd);
   }
 
+  /// شبیه SKIP وقتی پنجره باز نیست → مستقیماً می‌رود سراغ نوبت بعد
   Future<void> skipNow() async {
     _resetIfNewDay();
     skippedToday.value += 1;
@@ -86,6 +91,35 @@ class SmokingScheduler {
     await scheduleNext();
   }
 
+  /// دکمهٔ «Mark Smoked» (در صورت نیاز)
+  Future<void> markSmokedNow() async {
+    _resetIfNewDay();
+    if (inSmokingWindow.value) {
+      smokedToday.value += 1;
+      await _prefs.setInt(_kSmoked, smokedToday.value);
+      inSmokingWindow.value = false;
+      await _prefs.setInt(_kWinEndTs, 0);
+      await scheduleNext();
+    } else {
+      await smokeNow();
+    }
+  }
+
+  /// دکمهٔ «Mark Skipped» (در صورت نیاز)
+  Future<void> markSkippedNow() async {
+    _resetIfNewDay();
+    if (inSmokingWindow.value) {
+      skippedToday.value += 1;
+      await _prefs.setInt(_kSkipped, skippedToday.value);
+      inSmokingWindow.value = false;
+      await _prefs.setInt(_kWinEndTs, 0);
+      await scheduleNext();
+    } else {
+      await skipNow();
+    }
+  }
+
+  /// تنظیم نوبت بعد با فاصلهٔ اصلی
   Future<void> scheduleNext() async {
     final step = _interval;
     if (step == Duration.zero) return;
@@ -98,18 +132,18 @@ class SmokingScheduler {
     if (Platform.isAndroid) {
       try {
         await NativeBridge.cancelAll();
-        await NativeBridge.scheduleEpochList([nextMs]); // CHANGED: فقط نیتیو
+        await NativeBridge.scheduleEpochList([nextMs]); // فقط نیتیو
       } catch (_) {
-        // CHANGED: فالبک اندروید حذف شد تا نوتیفِ فلاتر ساخته نشه
+        // فالبک اندروید عمداً حذف شد
       }
     } else {
-      await _scheduleLocalNotification(
-          DateTime.fromMillisecondsSinceEpoch(nextMs));
+      await _scheduleLocalNotification(DateTime.fromMillisecondsSinceEpoch(nextMs));
     }
 
     _startCountdownTo(nextMs);
   }
 
+  /// تعمیر/شروع شمارش بر اساس وضعیت ذخیره‌شده
   Future<void> _startOrRepairCountdown() async {
     final nowMs  = DateTime.now().millisecondsSinceEpoch;
     final winEnd = _prefs.getInt(_kWinEndTs) ?? 0;
@@ -121,9 +155,11 @@ class SmokingScheduler {
     int targetMs;
 
     if (winEnd > nowMs) {
+      // هنوز در پنجرهٔ ۵ دقیقه‌ای هستیم
       targetMs = winEnd;
       inSmokingWindow.value = true;
     } else {
+      // بیرون پنجره → سراغ نوبت بعدی
       inSmokingWindow.value = false;
 
       if (nextTs <= 0) {
@@ -139,13 +175,10 @@ class SmokingScheduler {
       if (Platform.isAndroid) {
         try {
           await NativeBridge.cancelAll();
-          await NativeBridge.scheduleEpochList([nextTs]); // CHANGED: فقط نیتیو
-        } catch (_) {
-          // CHANGED: فالبک اندروید حذف شد
-        }
+          await NativeBridge.scheduleEpochList([nextTs]);
+        } catch (_) {}
       } else {
-        await _scheduleLocalNotification(
-            DateTime.fromMillisecondsSinceEpoch(nextTs));
+        await _scheduleLocalNotification(DateTime.fromMillisecondsSinceEpoch(nextTs));
       }
 
       targetMs = nextTs;
@@ -156,12 +189,16 @@ class SmokingScheduler {
 
   void _startCountdownTo(int targetMs) {
     _timer?.cancel();
+
     void tick() {
       final remainMs = targetMs - DateTime.now().millisecondsSinceEpoch;
       if (remainMs <= 0) {
         _timer?.cancel();
         if (inSmokingWindow.value) {
-          scheduleNext(); // بعد از ۵ دقیقه
+          // پنجره تمام شد و کاربر اقدامی نکرد → برو سراغ نوبت بعد
+          inSmokingWindow.value = false;
+          _prefs.setInt(_kWinEndTs, 0);
+          scheduleNext();
         } else {
           remaining.value = Duration.zero;
         }
@@ -169,14 +206,29 @@ class SmokingScheduler {
         remaining.value = Duration(milliseconds: remainMs);
       }
     }
+
     tick();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
-  Future<void> syncNextFromMillis(int millis) async {
-    await _prefs.setInt(_kNextTs, millis);
-    inSmokingWindow.value = false;
+  /// متد جدید برای سینک از سمت نیتیو/کانال
+  Future<void> syncFromMillis(int millis, {required bool isWindow}) async {
+    if (isWindow) {
+      await _prefs.setInt(_kWinEndTs, millis);
+      await _prefs.setInt(_kNextTs, 0);
+      inSmokingWindow.value = true;
+    } else {
+      await _prefs.setInt(_kNextTs, millis);
+      await _prefs.setInt(_kWinEndTs, 0);
+      inSmokingWindow.value = false;
+    }
     _startCountdownTo(millis);
+  }
+
+  /// برای سازگاری با کدهای قبلی (قدیمی)
+  @Deprecated('Use syncFromMillis(millis, isWindow: ...) instead')
+  Future<void> syncNextFromMillis(int millis) async {
+    await syncFromMillis(millis, isWindow: false);
   }
 
   // فقط برای iOS
@@ -201,10 +253,17 @@ class SmokingScheduler {
     );
   }
 
+  /// فیکس: در اولین اجرا امروز، فقط تاریخ را ست کن و آمار را صفر نکن
   void _resetIfNewDay() {
     final now = DateTime.now();
     final k = '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
     final stored = _prefs.getString(_kDate);
+
+    if (stored == null) {
+      _prefs.setString(_kDate, k);
+      return;
+    }
+
     if (stored != k) {
       smokedToday.value = 0;
       skippedToday.value = 0;

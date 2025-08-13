@@ -18,13 +18,15 @@ class ReminderReceiver : BroadcastReceiver() {
     companion object {
         private const val CHANNEL_ID = "smoke_schedule_channel"
         private const val CHANNEL_NAME = "Smoking Schedule"
+
+        // واحد با همه جا: یادآور «وقت سیگار»
         private const val NOTIF_ID = 1001
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         ensureChannel(context)
 
-        // اگر اجازهٔ نوتیف نداریم، در Receiver کاری نمی‌توانیم بکنیم → خارج شو
+        // اگر اجازهٔ نوتیف نداریم، کاری نکن
         if (Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
@@ -33,7 +35,10 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
 
-        // اکشن‌ها مستقیماً به ActionReceiver می‌روند
+        // اطمینان: اگر قبلاً نوتیف شمارش پنجره باز مانده، جمعش کن
+        SmokingNotification.cancelCountdown(context)
+
+        // اکشن‌ها → ActionReceiver
         val acceptIntent = Intent(context, ActionReceiver::class.java).apply {
             action = ActionReceiver.ACTION_ACCEPT
             putExtra("notifId", NOTIF_ID)
@@ -62,12 +67,12 @@ class ReminderReceiver : BroadcastReceiver() {
             .setOngoing(false)
             .addAction(0, "Smoke now", acceptPI)
             .addAction(0, "Skip", skipPI)
-            .setContentIntent(null) // کلیک روی بدنه نوتیف اپ را باز نکند
+            .setContentIntent(null) // کلیک روی بدنه اپ را باز نکند
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIF_ID, builder.build())
         } catch (_: SecurityException) {
-            // در صورت خطای امنیتی (اجازه رد شده)، بی‌سروصدا نادیده بگیر
+            // اگر اجازه رد شده، بی‌سروصدا رد شو
         }
     }
 

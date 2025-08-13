@@ -1,21 +1,23 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- android/app/src/main/AndroidManifest.xml -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:targetApi="33" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="reduce_smoking_app"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
 
-        <!-- Main activity -->
+        <!-- Main activity (Flutter V2 embedding) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -31,25 +33,23 @@
             </intent-filter>
         </activity>
 
+        <!-- اعلام استفاده از V2 -->
         <meta-data android:name="flutterEmbedding" android:value="2" />
 
-        <!-- نوتیف زمان سیگار -->
+        <!-- یادآور «وقت سیگار»؛ فقط داخل اپ -->
         <receiver
             android:name=".notifications.ReminderReceiver"
-            android:exported="true" />
-
-        <!-- دکمه‌های Smoke / Skip -->
-        <receiver
-            android:name=".notifications.ActionReceiver"
-            android:exported="true" />
-
-        <!-- بستن نوتیف تایمر بعد از ۵ دقیقه -->
-        <receiver
-            android:name=".notifications.SmokingWindowEndReceiver"
+            android:enabled="true"
             android:exported="false" />
 
+        <!-- اکشن‌های Smoke/Skip؛ فقط داخل اپ -->
+        <receiver
+            android:name=".notifications.ActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
+    <!-- اختیاری؛ اگر نیاز نداری می‌توانی حذفش کنی -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

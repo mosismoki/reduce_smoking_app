@@ -1,4 +1,3 @@
-// android/app/src/main/kotlin/com/example/reduce_smoking_app/notifications/SmokingNotification.kt
 package com.example.reduce_smoking_app.notifications
 
 import android.Manifest
@@ -29,28 +28,27 @@ object SmokingNotification {
                 val ch = NotificationChannel(
                     CHANNEL_ID,
                     CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_DEFAULT // برای دیده‌شدن تایمر
+                    NotificationManager.IMPORTANCE_DEFAULT
                 ).apply { setShowBadge(false) }
                 nm.createNotificationChannel(ch)
             }
         }
     }
 
-    /** نمایش نوتیف شمارش معکوس ۵ دقیقه‌ای پنجرهٔ سیگار */
+    /** نمایش نوتیف شمارشِ پنجرهٔ ۵ دقیقه‌ای */
     fun showSmokingCountdown(ctx: Context, windowEndMillis: Long) {
         ensureChannel(ctx)
 
-        // Android 13+: بدون اجازه نوتیفشن نشان داده نمیشه
+        // Android 13+: بدون مجوز، نوتیف نده
         if (Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
                 ctx, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             if (!granted) return
         }
-        // کاربر نوتیف را کلاً بسته باشد
         if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return
 
-        // تپ روی بدنه → اپ باز شود
+        // تپ روی بدنه → باز کردن اپ
         val openIntent = Intent(ctx, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
@@ -58,6 +56,10 @@ object SmokingNotification {
             ctx, 301, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        // زمان باقی‌مانده تا پایان پنجره
+        val now = System.currentTimeMillis()
+        val remainMs = max(0L, windowEndMillis - now)
 
         val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(
@@ -69,27 +71,28 @@ object SmokingNotification {
             .setOnlyAlertOnce(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(openPI)
+            // اگر به هر دلیل آلارم پایان پنجره نرسید، خود نوتیف بعد از پنجره خودش بسته شود
+            .setTimeoutAfter(remainMs + 1000)
 
-        // Chronometer countdown روی API 24+ فعال است
+        // Chronometer countdown برای API 24+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            builder.setUsesChronometer(true)
+            builder
+                .setUsesChronometer(true)
                 .setShowWhen(true)
                 .setChronometerCountDown(true)
-                // برای CountDown باید "when" زمان پایان باشد
-                .setWhen(windowEndMillis)
+                // نقطهٔ مرجع باید "الان + باقیمانده" باشد تا تأخیر منفی نشود
+                .setWhen(now + remainMs)
         } else {
-            // Fallback: متن mm:ss تا پایان — با Locale مشخص
-            val remainMs = max(0L, windowEndMillis - System.currentTimeMillis())
+            // Fallback: متن mm:ss
             val mm = (remainMs / 60000L).toInt()
             val ss = ((remainMs % 60000L) / 1000L).toInt()
-            val txt = String.format(Locale.US, "Time left: %02d:%02d", mm, ss)
-            builder.setContentText(txt)
+            builder.setContentText(String.format(Locale.US, "Time left: %02d:%02d", mm, ss))
         }
 
         try {
             NotificationManagerCompat.from(ctx).notify(NOTIF_ID_TIMER, builder.build())
         } catch (_: SecurityException) {
-            // اگر کاربر حین اجرا دسترسی را رد کرده باشد
+            // اگر مجوز در لحظه رد شد، بی‌سروصدا رد شو
         }
     }
 

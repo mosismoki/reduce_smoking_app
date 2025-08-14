@@ -4,9 +4,13 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:targetApi="33" />
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS"
+        tools:targetApi="33" />
+    <!-- برای setExactAndAllowWhileIdle در برخی دستگاه‌ها مفید است -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- فعلاً حذف می‌کنیم چون Receiver بوت نداریم -->
+    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> -->
 
     <application
         android:label="reduce_smoking_app"
@@ -48,12 +52,4 @@
             android:enabled="true"
             android:exported="false" />
     </application>
-
-    <!-- اختیاری؛ اگر نیاز نداری می‌توانی حذفش کنی -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
-        </intent>
-    </queries>
 </manifest>

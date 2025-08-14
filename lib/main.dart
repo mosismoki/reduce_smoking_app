@@ -1,5 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 // Pages
 import 'auth_choice_page.dart';
@@ -22,23 +23,33 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1) Firebase (optional auth)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (_) {
+    // اگر در محیط توسعه مشکل داشت، اجازه بده اپ بالا بیاد
+  }
 
   if (kAutoAnonymousSignIn) {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
-      await auth.signInAnonymously();
+      try { await auth.signInAnonymously(); } catch (_) {}
     }
   }
 
-  // 2) Local services
+  // 2) Local services – ترتیب مهم است
   await NotificationService.instance.init();
-  await SmokingScheduler.instance.init(); // loads prefs & timers
+  await SmokingScheduler.instance.init(); // loads prefs & timers (idempotent)
   await DataService.instance.init();      // loads SharedPreferences & stream
 
   runApp(const MyApp());
+
+  // 3) سراسری: به نیتیو اطلاع بده فلاتر آماده است (جلوگیری از race هنگام resume)
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    const channel = MethodChannel('smoking.native');
+    try { await channel.invokeMethod('flutterReady'); } catch (_) {}
+  });
 }
 
 class MyApp extends StatelessWidget {

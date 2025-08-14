@@ -36,6 +36,7 @@ class ActionReceiver : BroadcastReceiver() {
         private const val REQ_WINDOW_TIMEOUT   = 202
     }
 
+    // خواندن امن مقدارهای SharedPreferences (ممکن است Int/Long/String باشد)
     private fun getFlutterInt(prefs: SharedPreferences, key: String, def: Int = 0): Int {
         val v = prefs.all[key]
         return when (v) {
@@ -50,6 +51,7 @@ class ActionReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences(FLUTTER_PREF_FILE, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
 
+        // فاصله بر اساس cigsPerDay با حداقل 30 ثانیه
         val raw = getFlutterInt(prefs, KEY_CIGS_PER_DAY, 1)
         val cpd = raw.coerceIn(1, 2000)
         val intervalSec = max(MIN_INTERVAL_SEC, (86400.0 / cpd).toInt())
@@ -62,7 +64,7 @@ class ActionReceiver : BroadcastReceiver() {
 
         when (intent.action) {
             ACTION_ACCEPT -> {
-                // یوزر الان سیگار کشید → پنجره ۵ دقیقه‌ای
+                // کاربر پذیرفت → پنجره ۵ دقیقه‌ای باز شود
                 cancelWindowTimeout(context)
 
                 didAccept = true
@@ -79,13 +81,13 @@ class ActionReceiver : BroadcastReceiver() {
                 SmokingNotification.showSmokingCountdown(context, windowEnd)
                 scheduleWindowTimeout(context, windowEnd)
 
-                // reminder قبلی بی‌اثر شود و فقط nextAt جدید زمانبندی شود
+                // فقط ریمایندر بعدی را زمان‌بندی کن
                 cancelNextReminder(context)
                 scheduleNextReminder(context, nextAt)
             }
 
             ACTION_SKIP -> {
-                // یوزر اسکپ کرد → پنجره بسته و نوبت بعدی
+                // کاربر رد کرد → پنجره بسته و نوبت بعد
                 cancelWindowTimeout(context)
 
                 didSkip = true
@@ -105,29 +107,26 @@ class ActionReceiver : BroadcastReceiver() {
             }
 
             ACTION_WINDOW_TIMEOUT -> {
-                // پنجره تمام شد بدون اقدام یوزر → یک اسکپ خودکار ثبت کن
-                val prevWindow = prefs.getLong(KEY_WINDOW_END_TS, 0L)
-                if (prevWindow > 0L && now >= prevWindow) {
-                    val skipped = getFlutterInt(prefs, KEY_SKIPPED, 0) + 1
-                    prefs.edit {
-                        putInt(KEY_SKIPPED, skipped)
-                        putLong(KEY_WINDOW_END_TS, 0L)
-                    }
-                }
+                // ⛔️ بدون اسکیپ خودکار
                 SmokingNotification.cancelCountdown(context)
                 cancelWindowTimeout(context)
 
-                didSkip = true
+                // فقط پنجره را ببند
+                prefs.edit { putLong(KEY_WINDOW_END_TS, 0L) }
+
                 windowEnd = 0L
                 nextAt = prefs.getLong(KEY_NEXT_TS, 0L)
 
-                // ✅ بیمه: اگر به هر دلیل nextAt نداشتیم، همین‌جا محاسبه و زمان‌بندی کن
+                // بیمه: اگر nextAt موجود نبود، الان بساز و زمان‌بندی کن
                 if (nextAt <= 0L) {
                     nextAt = now + intervalMs
                     prefs.edit { putLong(KEY_NEXT_TS, nextAt) }
                     cancelNextReminder(context)
                     scheduleNextReminder(context, nextAt)
                 }
+
+                // هیچ اکشن کاربری گزارش نکن تا UI چیزی را +۱ نکند
+                didSkip = false
             }
 
             else -> return
@@ -149,7 +148,7 @@ class ActionReceiver : BroadcastReceiver() {
             })
             putExtra("smoked_today", getFlutterInt(prefs, KEY_SMOKED, 0))
             putExtra("skipped_today", getFlutterInt(prefs, KEY_SKIPPED, 0))
-            putExtra("smokingWindowEndTs", windowEnd)  // ۰ یعنی خارج از پنجره
+            putExtra("smokingWindowEndTs", windowEnd)  // 0 یعنی خارج از پنجره
             putExtra("nextCigTimestamp", nextAt)
             putExtra("next_at_millis", nextAt)         // سازگاری
             putExtra("window_timeout", intent.action == ACTION_WINDOW_TIMEOUT)
@@ -162,6 +161,7 @@ class ActionReceiver : BroadcastReceiver() {
         )
     }
 
+    /** زمان‌بندی ریمایندر بعدی (به ReminderReceiver می‌رود) */
     private fun scheduleNextReminder(context: Context, triggerAtMillis: Long) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, ReminderReceiver::class.java)
@@ -191,6 +191,7 @@ class ActionReceiver : BroadcastReceiver() {
         am.cancel(pi)
     }
 
+    /** فراخوان ساکت در پایان پنجره (به همین ActionReceiver) */
     private fun scheduleWindowTimeout(context: Context, windowEndMillis: Long) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, ActionReceiver::class.java).apply {

@@ -1,3 +1,4 @@
+// android/app/src/main/kotlin/com/example/reduce_smoking_app/MainActivity.kt
 package com.example.reduce_smoking_app
 
 import android.app.AlarmManager
@@ -7,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import com.example.reduce_smoking_app.notifications.ActionReceiver
 import com.example.reduce_smoking_app.notifications.ReminderReceiver
 import io.flutter.embedding.android.FlutterActivity
@@ -22,21 +24,44 @@ class MainActivity : FlutterActivity() {
     private lateinit var channel: MethodChannel
     private var countsReceiver: BroadcastReceiver? = null
 
+    // هندشیک برای جلوگیری از ارسال ایونت قبل از آماده شدن فلاتر
+    private var flutterReady = false
+    private var pendingCounts: HashMap<String, Any>? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
+                // Dart ممکنه این نام را صدا بزند
+                "scheduleEpochList",
+                    // و یا این یکی
                 "scheduleList" -> {
-                    val times = call.argument<List<Long>>("times") ?: emptyList()
+                    @Suppress("UNCHECKED_CAST")
+                    val times = (call.argument<List<Long>>("times")
+                        ?: call.argument<List<Long>>("epochs"))
+                        ?: emptyList()
                     scheduleList(times)
                     result.success(true)
                 }
+
                 "cancelAll" -> {
                     cancelAll()
                     result.success(true)
                 }
+
+                // از main.dart بعد از اولین فریم ارسال می‌شود
+                "flutterReady" -> {
+                    flutterReady = true
+                    // اگر ایونت معوقه داریم، همین حالا بفرست
+                    pendingCounts?.let { data ->
+                        safePostToFlutter("onCountsChanged", data)
+                    }
+                    pendingCounts = null
+                    result.success(true)
+                }
+
                 else -> result.notImplemented()
             }
         }
@@ -57,27 +82,53 @@ class MainActivity : FlutterActivity() {
                         "next_at_millis" to intent.getLongExtra("next_at_millis", 0L),
                         "window_timeout" to intent.getBooleanExtra("window_timeout", false)
                     )
-                    Handler(Looper.getMainLooper()).post {
-                        channel.invokeMethod("onCountsChanged", data)
-                    }
+                    sendCountsToFlutter(data)
                 }
             }
         }
 
         val filter = IntentFilter(ActionReceiver.ACTION_COUNTS_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // For API 33+: must specify NOT_EXPORTED (internal to app)
-            registerReceiver(countsReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(countsReceiver, filter)
-        }
+
+        // ✅ این نسخه با ContextCompat روی تمام APIها فلگ NOT_EXPORTED را رعایت می‌کند
+        ContextCompat.registerReceiver(
+            /* context = */ this,
+            /* receiver = */ countsReceiver,
+            /* filter = */ filter,
+            /* flags = */ ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onDestroy() {
-        try { unregisterReceiver(countsReceiver) } catch (_: Throwable) {}
+        countsReceiver?.let {
+            try { unregisterReceiver(it) } catch (_: Throwable) {}
+        }
         countsReceiver = null
         super.onDestroy()
+    }
+
+    // ----------------- Helpers -----------------
+
+    private fun sendCountsToFlutter(data: HashMap<String, Any>) {
+        if (flutterReady) {
+            safePostToFlutter("onCountsChanged", data)
+        } else {
+            // فلاتر هنوز آماده نیست → آخرین وضعیت را نگه می‌داریم
+            pendingCounts = data
+        }
+    }
+
+    private fun safePostToFlutter(method: String, args: Any?) {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                channel.invokeMethod(method, args)
+            } catch (_: Throwable) {
+                // اگر به هر دلیل در این لحظه خطا داد، در pending نگه می‌داریم
+                if (method == "onCountsChanged" && args is HashMap<*, *>) {
+                    @Suppress("UNCHECKED_CAST")
+                    pendingCounts = args as HashMap<String, Any>
+                }
+            }
+        }
     }
 
     private fun scheduleList(times: List<Long>) {
@@ -94,8 +145,11 @@ class MainActivity : FlutterActivity() {
             } else true
 
             try {
-                if (canExact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
-                else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
+                if (canExact) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
+                } else {
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
+                }
             } catch (_: SecurityException) {
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, t, pi)
             }

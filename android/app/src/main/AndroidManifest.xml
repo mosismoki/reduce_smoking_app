@@ -4,20 +4,25 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 13+ (API 33): اعلان‌ها -->
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS"
         tools:targetApi="33" />
-    <!-- برای setExactAndAllowWhileIdle در برخی دستگاه‌ها مفید است -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- فعلاً حذف می‌کنیم چون Receiver بوت نداریم -->
-    <!-- <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> -->
+
+    <!-- Android 12+ (API 31): برای setExactAndAllowWhileIdle -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        tools:targetApi="31" />
+
+    <!-- اگر BootReceiver ندارید، RECEIVE_BOOT_COMPLETED نیاز نیست -->
 
     <application
         android:label="reduce_smoking_app"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
 
-        <!-- Main activity (Flutter V2 embedding) -->
+        <!-- Flutter V2 embedding -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,16 +45,24 @@
         <!-- اعلام استفاده از V2 -->
         <meta-data android:name="flutterEmbedding" android:value="2" />
 
-        <!-- یادآور «وقت سیگار»؛ فقط داخل اپ -->
+        <!-- یادآور «وقت سیگار»؛ فقط داخل اپ (AlarmManager -> Notification) -->
         <receiver
             android:name=".notifications.ReminderReceiver"
             android:enabled="true"
             android:exported="false" />
 
-        <!-- اکشن‌های Smoke/Skip؛ فقط داخل اپ -->
+        <!-- اکشن‌های Smoke / Skip و پایان پنجره؛ فقط داخل اپ -->
         <receiver
             android:name=".notifications.ActionReceiver"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false">
+            <!-- اختیاری ولی مفید: فیلتر اکشن‌ها برای سازگاری بیشتر -->
+            <intent-filter>
+                <action android:name="SMOKE_ACCEPT" />
+                <action android:name="SMOKE_SKIP" />
+                <action android:name="WINDOW_TIMEOUT" />
+            </intent-filter>
+        </receiver>
+
     </application>
 </manifest>

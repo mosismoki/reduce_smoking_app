@@ -1,4 +1,5 @@
 // lib/main.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,8 +14,8 @@ import 'firebase_options.dart';
 
 // Local services
 import 'notification_service.dart';
-import 'services/smoking_scheduler.dart'; // ← relative import (not package:)
-import 'services/data_service.dart';      // ← for local persisted stats
+import 'services/smoking_scheduler.dart';
+import 'services/data_service.dart';
 
 /// Toggle this to quickly enable/disable auto anonymous sign-in for testing.
 const bool kAutoAnonymousSignIn = false;
@@ -22,38 +23,44 @@ const bool kAutoAnonymousSignIn = false;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1) Firebase (optional auth)
+  // ---- 1) Firebase (optional)
+  bool firebaseOk = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseOk = true;
   } catch (_) {
-    // اگر در محیط توسعه مشکل داشت، اجازه بده اپ بالا بیاد
+    // در حالت توسعه اگر Firebase نبود، اپ باید بدون کرش بالا بیاد
+    firebaseOk = false;
   }
 
-  if (kAutoAnonymousSignIn) {
+  if (firebaseOk && kAutoAnonymousSignIn) {
     final auth = FirebaseAuth.instance;
     if (auth.currentUser == null) {
       try { await auth.signInAnonymously(); } catch (_) {}
     }
   }
 
-  // 2) Local services – ترتیب مهم است
+  // ---- 2) Local services – ترتیب مهم است
   await NotificationService.instance.init();
-  await SmokingScheduler.instance.init(); // loads prefs & timers (idempotent)
-  await DataService.instance.init();      // loads SharedPreferences & stream
+  await SmokingScheduler.instance.init(); // prefs & timers
+  await DataService.instance.init();      // local stats
 
-  runApp(const MyApp());
+  runApp(MyApp(firebaseOk: firebaseOk));
 
-  // 3) سراسری: به نیتیو اطلاع بده فلاتر آماده است (جلوگیری از race هنگام resume)
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    const channel = MethodChannel('smoking.native');
-    try { await channel.invokeMethod('flutterReady'); } catch (_) {}
-  });
+  // ---- 3) به نیتیو اطلاع بده فلاتر آماده است (فقط اندروید)
+  if (Platform.isAndroid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      const channel = MethodChannel('smoking.native');
+      try { await channel.invokeMethod('flutterReady'); } catch (_) {}
+    });
+  }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.firebaseOk});
+  final bool firebaseOk;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +88,10 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // If kAutoAnonymousSignIn = true you will never see AuthChoicePage.
-      home: StreamBuilder<User?>(
+
+      // اگر Firebase در دسترس نیست، اصلاً وارد StreamBuilder نشویم.
+      home: firebaseOk
+          ? StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -91,9 +100,11 @@ class MyApp extends StatelessWidget {
             );
           }
           final user = snapshot.data;
+          // اگر کاربر لاگین است → MainPage؛ وگرنه → AuthChoicePage
           return (user != null) ? const MainPage() : const AuthChoicePage();
         },
-      ),
+      )
+          : const MainPage(), // بدون Firebase مستقیم وارد اپ شو (UI-only)
     );
   }
 }

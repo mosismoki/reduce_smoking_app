@@ -29,7 +29,7 @@ class SmokingScheduler {
   final ValueNotifier<int>      skippedToday    = ValueNotifier(0);
   final ValueNotifier<bool>     inSmokingWindow = ValueNotifier(false);
 
-  // Read-only plan
+  // Convenience
   int? get cigsPerDay => _initialized ? _prefs.getInt(_kCigsPerDay) : null;
 
   // iOS notifications (Android is native)
@@ -38,10 +38,10 @@ class SmokingScheduler {
 
   bool _initialized = false;
 
-  // فاصله‌ی حداقل بین سیگارها از روی cigs/day (با کَلمپ و حداقل ۳۰ ثانیه)
+  // فاصله‌ی حداقل بین سیگارها از روی cigs/day (کَلمپ و حداقل ۳۰ ثانیه)
   Duration get _interval {
-    final raw = _prefs.getInt(_kCigsPerDay) ?? 0;
-    if (raw <= 0) return Duration.zero;
+    final raw = _prefs.getInt(_kCigsPerDay);
+    if (raw == null || raw <= 0) return Duration.zero;
     final cpd  = raw.clamp(1, 2000);
     final secs = (86400 / cpd).floor();
     return Duration(seconds: secs < 30 ? 30 : secs);
@@ -49,10 +49,9 @@ class SmokingScheduler {
 
   // ---- Lifecycle
 
-  /// Call once at app boot (idempotent). لطفاً در main.dart صدا بزن.
+  /// Call once at app boot (idempotent). لطفاً در main.dart قبل از runApp صدا بزن.
   Future<void> init() async {
     if (_initialized) return;
-    _initialized = true;
 
     try { tzdata.initializeTimeZones(); } catch (_) {}
 
@@ -64,13 +63,14 @@ class SmokingScheduler {
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     try { await _notifications.initialize(initSettings); } catch (_) {}
 
-    // لاگ وضعیت اولیه Prefs
     debugPrint('[Sched/init] cpd=${_prefs.getInt(_kCigsPerDay)} '
         'smoked=${_prefs.getInt(_kSmoked)} skipped=${_prefs.getInt(_kSkipped)} '
         'winEnd=${_prefs.getInt(_kWinEndTs)} nextTs=${_prefs.getInt(_kNextTs)} '
         'date=${_prefs.getString(_kDate)}');
 
+    // مهم: اول hydration کامل، بعد initialized=true
     _hydrateAndRepair();
+    _initialized = true;
   }
 
   /// Call on resume (e.g. didChangeAppLifecycleState -> resumed)
@@ -81,7 +81,6 @@ class SmokingScheduler {
 
   /// Call on paused/inactive
   Future<void> flush() async {
-    // اگر state معوقه داری اینجا persist کن؛ reload صرفاً sync می‌کند.
     try { await _prefs.reload(); } catch (_) {}
   }
 
@@ -115,7 +114,7 @@ class SmokingScheduler {
     _startCountdownTo(winEnd);
   }
 
-  /// رد کردن نوبت فعلی و رفتن به بعدی (اگر داخل پنجره بودیم اول پنجره را ببند)
+  /// رد کردن نوبت فعلی و رفتن به بعدی
   Future<void> skipNow() async {
     _resetIfNewDay();
     if (!inSmokingWindow.value) {
@@ -130,7 +129,6 @@ class SmokingScheduler {
     await scheduleNext();
   }
 
-  /// دکمه «Mark Smoked» (داخل/بیرون پنجره کار می‌کند)
   Future<void> markSmokedNow() async {
     _resetIfNewDay();
     if (inSmokingWindow.value) {
@@ -145,7 +143,6 @@ class SmokingScheduler {
     }
   }
 
-  /// دکمه «Mark Skipped» (داخل/بیرون پنجره)
   Future<void> markSkippedNow() async {
     _resetIfNewDay();
     if (inSmokingWindow.value) {
@@ -164,7 +161,10 @@ class SmokingScheduler {
   Future<void> scheduleNext() async {
     final step = _interval;
     if (step == Duration.zero) {
-      debugPrint('[Sched/scheduleNext] step=0 → no scheduling');
+      debugPrint('[Sched/scheduleNext] step=0 → no scheduling (cpd null/zero)');
+      _cancelTicker();
+      remaining.value = Duration.zero;
+      inSmokingWindow.value = false;
       return;
     }
 
@@ -202,13 +202,13 @@ class SmokingScheduler {
   // ---- Internals
 
   void _hydrateAndRepair() {
-    _resetIfNewDay();
-
+    // ترتیب مهم: ابتدا counters را از دیسک بخوان، بعد reset روزانه
     smokedToday.value  = _prefs.getInt(_kSmoked)  ?? 0;
     skippedToday.value = _prefs.getInt(_kSkipped) ?? 0;
 
-    debugPrint('[Sched/hydrate] smoked=${smokedToday.value} '
-        'skipped=${skippedToday.value}');
+    _resetIfNewDay(); // اگر روز عوض شده counters صفر می‌شود
+
+    debugPrint('[Sched/hydrate] smoked=${smokedToday.value} skipped=${skippedToday.value}');
     _startOrRepairCountdown();
   }
 
@@ -218,8 +218,7 @@ class SmokingScheduler {
     int   nextTs = _prefs.getInt(_kNextTs)   ?? 0;
 
     final step = _interval;
-    debugPrint('[Sched/repair] winEnd=$winEnd nextTs=$nextTs '
-        'step=${step.inSeconds}s now=$nowMs');
+    debugPrint('[Sched/repair] winEnd=$winEnd nextTs=$nextTs step=${step.inSeconds}s now=$nowMs');
 
     if (step == Duration.zero) {
       _cancelTicker();
@@ -263,9 +262,7 @@ class SmokingScheduler {
         debugPrint('[Sched/_schedulePlatform] Android native failed: $e');
       }
     } else {
-      await _scheduleLocalNotification(
-        DateTime.fromMillisecondsSinceEpoch(whenMs),
-      );
+      await _scheduleLocalNotification(DateTime.fromMillisecondsSinceEpoch(whenMs));
     }
   }
 
@@ -328,33 +325,49 @@ class SmokingScheduler {
     );
   }
 
-  /// صفر کردن شمارنده‌ها تنها وقتی «روز عوض شده»
-  void _resetIfNewDay() {
+  // ---- Date helpers
+
+  String _yyyymmddNow() {
     final now = DateTime.now();
-    final k = '${now.year.toString().padLeft(4, '0')}'
+    return '${now.year.toString().padLeft(4, '0')}'
         '${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}';
+  }
 
-    final stored = _prefs.getString(_kDate);
+  /// هر استرینگی مثل "2025-08-14" یا "20250814" را به "20250814" تبدیل می‌کند
+  String? _normalizeYyyymmdd(String? s) {
+    if (s == null) return null;
+    final digits = s.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length >= 8) return digits.substring(0, 8);
+    return null;
+  }
+
+  /// صفر کردن شمارنده‌ها تنها وقتی «روز عوض شده»
+  void _resetIfNewDay() {
+    final today = _yyyymmddNow();
+    final storedRaw = _prefs.getString(_kDate);
+    final stored = _normalizeYyyymmdd(storedRaw);
 
     if (stored == null) {
-      _prefs.setString(_kDate, k);
-      debugPrint('[Sched/resetIfNewDay] first set date=$k');
+      _prefs.setString(_kDate, today); // اولین بار یا فرمت نامعتبر → فقط تاریخ را ذخیره کن
+      debugPrint('[Sched/resetIfNewDay] set date=$today (was: $storedRaw)');
       return;
     }
 
-    if (stored != k) {
+    if (stored != today) {
       smokedToday.value = 0;
       skippedToday.value = 0;
       _prefs
-        ..setString(_kDate, k)
+        ..setString(_kDate, today)
         ..setInt(_kSmoked, 0)
         ..setInt(_kSkipped, 0)
         ..setInt(_kWinEndTs, 0);
       inSmokingWindow.value = false;
-      debugPrint('[Sched/resetIfNewDay] NEW DAY stored=$stored -> $k (counters reset)');
+      debugPrint('[Sched/resetIfNewDay] NEW DAY $stored -> $today (counters reset)');
     } else {
-      debugPrint('[Sched/resetIfNewDay] same day=$k (no reset)');
+      // اگر قبلاً با خط تیره ذخیره شده بود، همین‌جا normalize کن
+      if (storedRaw != today) _prefs.setString(_kDate, today);
+      debugPrint('[Sched/resetIfNewDay] same day=$today (no reset)');
     }
   }
 }

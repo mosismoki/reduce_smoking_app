@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:reduce_smoking_app/native_bridge.dart';
 
 // Firestore را فعلاً استفاده نمی‌کنیم
 // import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,62 +28,68 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   bool _ready = false;
   bool _handlerAttached = false;
 
+  // --- دکمهٔ تست آلارم ۵ ثانیه‌ای ---
+  Future<void> _debugScheduleIn5Sec() async {
+    final ts = DateTime.now().add(const Duration(seconds: 5)).millisecondsSinceEpoch;
+    await NativeBridge.cancelAll();
+    await NativeBridge.scheduleEpochList([ts]);
+    // ignore: avoid_print
+    print('[DEBUG] scheduled test alarm at $ts');
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _boot();
 
-    // Native -> Flutter updates
-    _channel.setMethodCallHandler((call) async {
-      if (!mounted) return null; // صفحه dispose شده؟
-      try {
-        if (call.method == 'onCountsChanged') {
-          final Map<String, dynamic> data =
-          Map<String, dynamic>.from(call.arguments ?? {});
+    // Native -> Flutter updates (یک‌بار ست شود)
+    if (!_handlerAttached) {
+      _channel.setMethodCallHandler((call) async {
+        if (!mounted) return null;
+        try {
+          if (call.method == 'onCountsChanged') {
+            final args = (call.arguments is Map)
+                ? Map<String, dynamic>.from(call.arguments as Map)
+                : const <String, dynamic>{};
 
-          final nowMs        = DateTime.now().millisecondsSinceEpoch;
-          final nextAtMillis = (data['next_at_millis'] as num?)?.toInt() ?? 0;
-          final windowEndMs  = (data['smokingWindowEndTs'] as num?)?.toInt() ?? 0;
+            final nowMs        = DateTime.now().millisecondsSinceEpoch;
+            final int nextAtMs = (args['next_at_millis'] as num?)?.toInt() ?? 0;
+            final int winEndMs = (args['smokingWindowEndTs'] as num?)?.toInt() ?? 0;
 
-          // آمار روز را از نیتیو بگیر
-          if (data.containsKey('smoked_today')) {
-            _scheduler.smokedToday.value =
-                (data['smoked_today'] as num?)?.toInt() ??
-                    _scheduler.smokedToday.value;
-          }
-          if (data.containsKey('skipped_today')) {
-            _scheduler.skippedToday.value =
-                (data['skipped_today'] as num?)?.toInt() ??
-                    _scheduler.skippedToday.value;
-          }
+            // آمار روز را از نیتیو بگیر (فقط UI را آپدیت کن)
+            final smokedToday = (args['smoked_today'] as num?)?.toInt();
+            final skippedToday = (args['skipped_today'] as num?)?.toInt();
+            if (smokedToday != null) _scheduler.smokedToday.value = smokedToday;
+            if (skippedToday != null) _scheduler.skippedToday.value = skippedToday;
 
-          // تشخیص نوع شمارش‌گر و سینک
-          if (windowEndMs > nowMs) {
-            await _scheduler.syncFromMillis(windowEndMs, isWindow: true);
-          } else if (nextAtMillis > 0) {
-            await _scheduler.syncFromMillis(nextAtMillis, isWindow: false);
-          }
+            // همگام‌سازی شمارش‌گر
+            if (winEndMs > nowMs) {
+              await _scheduler.syncFromMillis(winEndMs, isWindow: true);
+            } else if (nextAtMs > 0) {
+              await _scheduler.syncFromMillis(nextAtMs, isWindow: false);
+            }
 
-          // فقط اگر زیاد شده، به کلود بفرست (اختیاری)
-          final newSmoked  = _scheduler.smokedToday.value;
-          final newSkipped = _scheduler.skippedToday.value;
-          if (newSmoked > _lastSmoked) {
-            _lastSmoked = newSmoked;
-            // await DataService.instance.incrementSmoked();
-          }
-          if (newSkipped > _lastSkipped) {
-            _lastSkipped = newSkipped;
-            // await DataService.instance.incrementSkipped();
-          }
+            // فقط اگر زیاد شده، (اختیاری) به کلود بفرست
+            if (_scheduler.smokedToday.value > _lastSmoked) {
+              _lastSmoked = _scheduler.smokedToday.value;
+              // await DataService.instance.incrementSmoked();
+            }
+            if (_scheduler.skippedToday.value > _lastSkipped) {
+              _lastSkipped = _scheduler.skippedToday.value;
+              // await DataService.instance.incrementSkipped();
+            }
 
-          if (mounted) setState(() {});
-          return true;
+            if (mounted) setState(() {});
+            return true;
+          }
+        } catch (_) {
+          // لاگ اختیاری
         }
-      } catch (_) {}
-      return null;
-    });
-    _handlerAttached = true;
+        return null;
+      });
+      _handlerAttached = true;
+    }
   }
 
   Future<void> _boot() async {
@@ -114,9 +121,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
-    // هندلر را آزاد کنیم تا اگر صفحه دوباره ساخت شد، دوبار ست نشود
+    // Handler را آزاد کن تا در ساخت مجدد صفحه، دو بار ست نشود
     if (_handlerAttached) {
-      // راه امن: جایگزینی با هندلر تهی
       _channel.setMethodCallHandler(null);
       _handlerAttached = false;
     }
@@ -268,8 +274,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       ElevatedButton.icon(
                         onPressed: () async {
                           await _scheduler.smokeNow();
-                          // اختیاری: سینک با کلود
-                          // await DataService.instance.incrementSmoked();
+                          // await DataService.instance.incrementSmoked(); // اختیاری
                           if (mounted) setState(() {});
                         },
                         icon: const Icon(Icons.local_fire_department),
@@ -278,12 +283,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                       OutlinedButton.icon(
                         onPressed: () async {
                           await _scheduler.skipNow();
-                          // اختیاری: سینک با کلود
-                          // await DataService.instance.incrementSkipped();
+                          // await DataService.instance.incrementSkipped(); // اختیاری
                           if (mounted) setState(() {});
                         },
                         icon: const Icon(Icons.thumb_up_alt_outlined),
                         label: const Text('Mark Skipped'),
+                      ),
+                      // 🔹 دکمه‌ی تست آلارم ۵ ثانیه‌ای
+                      TextButton(
+                        onPressed: _debugScheduleIn5Sec,
+                        child: const Text('Test 5s alarm'),
                       ),
                     ],
                   ),
